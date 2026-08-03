@@ -1,0 +1,57 @@
+name: Deploy Web C3 Playground
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out host repository
+        uses: actions/checkout@v7
+
+# I'll wait until the fixes are merged https://github.com/c3lang/c3c/pull/3415
+      # - name: Shallow Clone C3 Compiler Sources
+      #   run: |
+      #     git clone --depth 1 https://github.com/c3lang/c3c.git c3c
+
+      # - name: Install System Dependencies
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y ninja-build zip
+
+      - name: Setup Emscripten (WebAssembly Compiler)
+        uses: emscripten-core/setup-emsdk@v16
+        with:
+          version: "latest"
+          actions-cache-folder: "emsdk-cache"
+
+      - name: Build Web Compiler
+        shell: bash
+        run: ./build.sh Release latest
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: "dist"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
