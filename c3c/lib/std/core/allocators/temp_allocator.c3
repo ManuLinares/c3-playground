@@ -1,0 +1,428 @@
+module std::core::mem::allocators @feat(!POSIX & !WIN32, !VMEM_TEMP);
+import std::io, std::math;
+
+// This implements the temp allocator.
+// The temp allocator is a specialized allocator only intended for use where
+// the allocation is strictly stack-like.
+//
+// It is *not* thread-safe: you cannot safely use the
+// temp allocator on a thread and pass it to another thread.
+//
+// Fundamentally the temp allocator is a thread local arena allocator
+// but the stack-like behaviour puts additional constraints to it.
+//
+// It works great for allocating temporary data in a scope then dropping
+// that data, however you should not be storing temporary data in globals
+// or locals that have a lifetime outside of the current temp allocator scope.
+//
+// Furthermore, note that the temp allocator is bounded, with additional
+// allocations on top of that causing heap allocations. Such heap allocations
+// will be cleaned up but is undesirable from a performance standpoint.
+//
+// If you want customizable behaviour similar to the temp allocator, consider
+// the ArenaAllocator, BackedArenaAllocator or the DynamicArenaAllocator.
+//
+// Experimenting with the temp allocator to make it work outside of its
+// standard usage patterns will invariably end in tears and frustrated
+// hair pulling.
+//
+// Use one of the ArenaAllocators instead.
+
+struct TempAllocator (Allocator)
+{
+	Allocator backing_allocator;
+	TempAllocatorPage* last_page;
+	TempAllocator* derived;
+	bool allocated;
+	sz reserve_size;
+	sz realloc_size;
+	sz min_size;
+	sz used;
+	sz capacity;
+	sz original_capacity;
+	char[*] data;
+}
+
+struct TempAllocatorChunk @local
+{
+	sz size;
+	char[*] data;
+}
+
+const sz PAGE_IS_ALIGNED @local = sz::min;
+
+struct TempAllocatorPage
+{
+	TempAllocatorPage* prev_page;
+	void* start;
+	sz size;
+	sz ident;
+	char[*] data;
+}
+
+macro sz TempAllocatorPage.pagesize(&self) => self.size & ~PAGE_IS_ALIGNED;
+macro bool TempAllocatorPage.is_aligned(&self) => self.size & PAGE_IS_ALIGNED == PAGE_IS_ALIGNED;
+
+<*
+ @require size >= 64
+ @require realloc_size >= 64
+ @require allocator.type != TempAllocator : "You may not create a temp allocator with a TempAllocator as the backing allocator."
+ @require min_size > TempAllocator::size + 64 : "Min size must meaningfully hold the data + some bytes"
+*>
+fn TempAllocator*? new_temp_allocator(Allocator allocator, sz size, sz reserve = temp_allocator_reserve_size, sz min_size = temp_allocator_min_size, sz realloc_size = temp_allocator_realloc_size)
+{
+	TempAllocator* temp = alloc::alloc_with_padding(allocator, TempAllocator, size)!;
+	temp.last_page = null;
+	temp.backing_allocator = allocator;
+	temp.used = 0;
+	temp.min_size = min_size;
+	temp.realloc_size = realloc_size;
+	temp.reserve_size = reserve;
+	temp.allocated = true;
+	temp.derived = null;
+	temp.original_capacity = temp.capacity = size;
+	return temp;
+}
+<*
+ @require !self.derived
+*>
+fn TempAllocator*? TempAllocator.derive_allocator(&self, sz reserve = 0)
+{
+	if (!reserve) reserve = self.reserve_size;
+	sz remaining = self.capacity - self.used;
+	void* mem @noinit;
+	sz size @noinit;
+	if (self.min_size + reserve > remaining)
+	{
+		return self.derived = new_temp_allocator(self.backing_allocator, self.realloc_size, self.reserve_size, self.min_size, self.realloc_size)!;
+	}
+	sz start = mem::aligned_offset(self.used + reserve, mem::DEFAULT_MEM_ALIGNMENT);
+	void* ptr = &self.data[start];
+	TempAllocator* temp = (TempAllocator*)ptr;
+	$if $feat(ASAN):
+        asan::unpoison_memory_region(ptr, TempAllocator::size);
+	$endif
+	temp.last_page = null;
+    temp.backing_allocator = self.backing_allocator;
+    temp.used = 0;
+    temp.min_size = self.min_size;
+    temp.reserve_size = self.reserve_size;
+    temp.realloc_size = self.realloc_size;
+    temp.allocated = false;
+    temp.derived = null;
+    temp.original_capacity = temp.capacity = self.capacity - start - TempAllocator::size;
+    self.capacity = start;
+	self.derived = temp;
+    return temp;
+}
+
+<*
+ Reset the entire temp allocator, which will merge all the children into it.
+*>
+fn void TempAllocator.reset(&self)
+{
+	TempAllocator* child = self.derived;
+	if (!child) return;
+	while (child)
+	{
+		TempAllocator* old = child;
+		child = old.derived;
+		temp_allocator_destroy(old);
+	}
+	self.capacity = self.original_capacity;
+	$if $feat(ASAN):
+		asan::poison_memory_region(&self.data[self.used], self.capacity - self.used);
+	$endif
+	self.derived = null;
+}
+
+<*
+ @require self.allocated : "Only a top level allocator should be freed."
+*>
+fn void TempAllocator.free(&self)
+{
+	self.reset();
+	temp_allocator_destroy(self);
+}
+
+fn void temp_allocator_destroy(TempAllocator* self)
+{
+	TempAllocatorPage *last_page = self.last_page;
+	while (last_page)
+	{
+		TempAllocatorPage *to_free = last_page;
+		last_page = last_page.prev_page;
+		_free_page(self, to_free)!!;
+	}
+	if (self.allocated)
+	{
+		alloc::free(self.backing_allocator, self);
+		return;
+	}
+	$if env::COMPILER_SAFE_MODE || $feat(ASAN):
+    	$if env::COMPILER_SAFE_MODE && !$feat(ASAN):
+    		self.data[0 : self.used] = 0xAA;
+		$else
+            asan::poison_memory_region(&self.data[0], self.used);
+    	$endif
+    $endif
+}
+
+fn void TempAllocator.release(&self, void* old_pointer, bool) @dynamic
+{
+	sz old_size = *(sz*)(old_pointer - DEFAULT_SIZE_PREFIX);
+	if (old_pointer + old_size == &self.data[self.used])
+	{
+		self.used -= old_size;
+		asan::poison_memory_region(&self.data[self.used], (usz)old_size);
+	}
+}
+
+
+
+fn void*? TempAllocator.resize(&self, void* pointer, sz size, sz alignment) @dynamic
+{
+	TempAllocatorChunk *chunk = pointer - TempAllocatorChunk::size;
+	if (chunk.size == (sz)-1)
+	{
+		assert(self.last_page, "Realloc of non temp pointer");
+		// First grab the page
+		TempAllocatorPage *page = pointer - TempAllocatorPage::size;
+		return _realloc_page(self, page, size, alignment);
+	}
+	bool is_realloc_of_last = chunk.size + pointer == &self.data[self.used];
+	if (is_realloc_of_last)
+	{
+		sz diff = size - chunk.size;
+		if (diff == 0) return pointer;
+		if (self.capacity - self.used > diff)
+		{
+			chunk.size += diff;
+			self.used += diff;
+			$if $feat(ASAN):
+				if (diff < 0)
+				{
+					asan::poison_memory_region(pointer + chunk.size, -diff);
+				}
+				else
+				{
+					asan::unpoison_memory_region(pointer, chunk.size);
+				}
+			$endif
+			return pointer;
+		}
+	}
+	void* data = self.acquire(size, NO_ZERO, alignment)!;
+	sz len_to_copy = chunk.size > size ? size : chunk.size;
+	mem::copy(data, pointer, len_to_copy, mem::DEFAULT_MEM_ALIGNMENT, mem::DEFAULT_MEM_ALIGNMENT);
+	if (is_realloc_of_last)
+	{
+		self.used = (sz)((iptr)chunk - (iptr)&self.data);
+		$if $feat(ASAN):
+			asan::poison_memory_region(chunk, TempAllocatorChunk::size + chunk.size);
+		$endif
+	}
+	return data;
+}
+
+<*
+ @require size > 0
+ @require !alignment || math::is_power_of_2(alignment)
+ @require alignment <= mem::MAX_MEMORY_ALIGNMENT : `alignment too big`
+*>
+fn void*? TempAllocator.acquire(&self, sz size, AllocInitType init_type, sz alignment) @dynamic
+{
+	alignment = alignment_for_allocation(alignment);
+	void* start_mem = &self.data;
+	void* starting_ptr = start_mem + self.used;
+	void* aligned_header_start = mem::aligned_pointer(starting_ptr, TempAllocatorChunk::alignment);
+	void* mem = aligned_header_start + TempAllocatorChunk::size;
+	if (alignment > TempAllocatorChunk::alignment)
+	{
+		mem = mem::aligned_pointer(mem, alignment);
+	}
+	sz new_usage = (sz)(mem - start_mem) + size;
+
+	// Arena allocation, simple!
+	if (new_usage <= self.capacity)
+	{
+		asan::unpoison_memory_region(starting_ptr, (usz)(new_usage - self.used));
+		TempAllocatorChunk* chunk_start = mem - TempAllocatorChunk::size;
+		chunk_start.size = size;
+		self.used = new_usage;
+		if (init_type == ZERO) mem::clear(mem, size, mem::DEFAULT_MEM_ALIGNMENT);
+		return mem;
+	}
+
+	// Fallback to backing allocator
+	TempAllocatorPage* page;
+
+	// We have something we need to align.
+	if (alignment > mem::DEFAULT_MEM_ALIGNMENT)
+	{
+		// This is actually simpler, since it will create the offset for us.
+		sz total_alloc_size = mem::aligned_offset(TempAllocatorPage::size + size, alignment);
+		if (init_type == ZERO)
+		{
+			mem = alloc::calloc_aligned(self.backing_allocator, total_alloc_size, alignment)!;
+		}
+		else
+		{
+			mem = alloc::malloc_aligned(self.backing_allocator, total_alloc_size, alignment)!;
+		}
+		void* start = mem;
+		mem += mem::aligned_offset(TempAllocatorPage::size, alignment);
+		page = (TempAllocatorPage*)mem - 1;
+		page.start = start;
+		page.size = size | PAGE_IS_ALIGNED;
+	}
+	else
+	{
+		// Here we might need to pad
+		sz padded_header_size = mem::aligned_offset(TempAllocatorPage::size, mem::DEFAULT_MEM_ALIGNMENT);
+		sz total_alloc_size = padded_header_size + size;
+		void* alloc = self.backing_allocator.acquire(total_alloc_size, init_type, 0)!;
+
+		// Find the page.
+		page = alloc + padded_header_size - TempAllocatorPage::size;
+		assert(mem::ptr_is_aligned(page, TempAllocator::alignment));
+		assert(mem::ptr_is_aligned(&page.data[0], mem::DEFAULT_MEM_ALIGNMENT));
+		page.start = alloc;
+		page.size = size;
+	}
+
+	// Mark it as a page
+	page.ident = ~(sz)0;
+	// Hook up the page.
+	page.prev_page = self.last_page;
+	self.last_page = page;
+	return &page.data[0];
+}
+
+
+fn void? _free_page(TempAllocator* self, TempAllocatorPage* page) @inline @local
+{
+	void* mem = page.start;
+	return self.backing_allocator.release(mem, page.is_aligned());
+}
+
+fn void*? _realloc_page(TempAllocator* self, TempAllocatorPage* page, sz size, sz alignment) @inline @local
+{
+	// Then the actual start pointer:
+	void* real_pointer = page.start;
+
+	// Walk backwards to find the pointer to this page.
+	TempAllocatorPage **pointer_to_prev = &self.last_page;
+	// Remove the page from the list
+	while (*pointer_to_prev != page)
+	{
+		pointer_to_prev = &((*pointer_to_prev).prev_page);
+	}
+	*pointer_to_prev = page.prev_page;
+	sz page_size = page.pagesize();
+	// Clear on size > original size.
+	void* data = self.acquire(size, NO_ZERO, alignment)!;
+	if (page_size > size) page_size = size;
+	mem::copy(data, &page.data[0], page_size, mem::DEFAULT_MEM_ALIGNMENT, mem::DEFAULT_MEM_ALIGNMENT);
+	self.backing_allocator.release(real_pointer, page.is_aligned());
+	return data;
+}
+
+module std::core::mem::allocators @feat(POSIX, WIN32) @feat(VMEM_TEMP);
+import std::math;
+
+
+tlocal VmemOptions temp_allocator_default_options = {
+	.shrink_on_reset = env::MEMORY_ENV != NORMAL,
+	.protect_unused_pages = env::COMPILER_OPT_LEVEL <= O1 || env::COMPILER_SAFE_MODE,
+	.scratch_released_data = env::COMPILER_SAFE_MODE
+};
+
+
+fn TempAllocator*? new_temp_allocator(Allocator allocator, sz size, sz reserve = temp_allocator_reserve_size, sz min_size = temp_allocator_min_size, sz realloc_size = temp_allocator_realloc_size)
+{
+	Vmem mem;
+	TempAllocator* t = alloc::new(allocator, TempAllocator);
+	defer catch alloc::free(allocator, t);
+	t.vmem.init(preferred_size: sz::size > 4 ? 4 * mem::GB : 512 * mem::MB,
+	            reserve_page_size: sz::size > 4 ? 256 * mem::KB : 0,
+	            options: temp_allocator_default_options)!;
+	t.allocator = allocator;
+	return t;
+}
+
+struct TempAllocator (Allocator)
+{
+	Vmem vmem;
+	TempAllocator* derived;
+	Allocator allocator;
+}
+
+<*
+ @require size > 0
+ @require !alignment || math::is_power_of_2(alignment)
+ @require alignment <= mem::MAX_MEMORY_ALIGNMENT : `alignment too big`
+*>
+fn void*? TempAllocator.acquire(&self, sz size, AllocInitType init_type, sz alignment) @dynamic
+{
+	return self.vmem.acquire(size, init_type, alignment) @inline;
+}
+
+fn TempAllocator*? TempAllocator.derive_allocator(&self, sz reserve = 0)
+{
+	if (self.derived) return self.derived;
+	return self.derived = new_temp_allocator(self.allocator, 0)!;
+}
+
+<*
+ Reset the entire temp allocator, destroying all children
+*>
+fn void TempAllocator.reset(&self)
+{
+	TempAllocator* child = self.derived;
+	if (!child) return;
+	child.reset();
+	child.vmem.reset(0);
+}
+fn void TempAllocator.free(&self)
+{
+	_destroy(self);
+}
+
+fn void _destroy(TempAllocator* self) @local
+{
+	TempAllocator* child = self.derived;
+	if (child) _destroy(child);
+	self.vmem.free() @inline;
+	alloc::free(self.allocator, self) @inline;
+}
+
+fn void*? TempAllocator.resize(&self, void* pointer, sz size, sz alignment) @dynamic
+{
+	return self.vmem.resize(pointer, size, alignment) @inline;
+}
+
+fn void TempAllocator.release(&self, void* old_pointer, bool b) @dynamic
+{
+	self.vmem.release(old_pointer, b) @inline;
+}
+
+module std::core::mem::allocators;
+
+typedef LazyTempAllocator (Allocator) @private = uptr;
+
+fn void*? LazyTempAllocator.acquire(&self, sz bytes, AllocInitType init_type, sz alignment) @dynamic
+{
+	if (!top_temp) create_temp_allocator_on_demand();
+	return top_temp.acquire(bytes, init_type, alignment);
+}
+
+fn void*? LazyTempAllocator.resize(&self, void* old_ptr, sz new_bytes, sz alignment) @dynamic
+{
+	if (!top_temp) create_temp_allocator_on_demand();
+	return top_temp.resize(old_ptr, new_bytes, alignment);
+}
+
+fn void LazyTempAllocator.release(&self, void* old_ptr, bool aligned) @dynamic
+{
+}

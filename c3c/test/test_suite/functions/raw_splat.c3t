@@ -1,0 +1,116 @@
+// #target: macos-x64
+module rawsplat;
+
+int x;
+macro void foo(...)
+{
+	$for var $i = 0; $i < $vaarg.len; $i++:
+		x += $vaarg[$i] * $i;
+	$endfor
+}
+
+fn void main()
+{
+	int[3] y = { 33, 44, 55 };
+	foo(...y);
+	foo(1, ...y);
+	int[] z = &y;
+	foo(...z[1..2]);
+	foo(1, ...z[1..2], 5);
+}
+
+/* #expect: rawsplat.ll
+
+define void @rawsplat.main() #0 {
+entry:
+  %y = alloca [3 x i32], align 4
+  %.anon = alloca [3 x i32], align 4
+  %.anon6 = alloca [3 x i32], align 4
+  %z = alloca %"int[]", align 8
+  call void @llvm.memcpy.p0.p0.i32(ptr align 4 %y, ptr align 4 @.__const, i32 12, i1 false)
+  call void @llvm.memcpy.p0.p0.i32(ptr align 4 %.anon, ptr align 4 %y, i32 12, i1 false)
+  %0 = load i32, ptr @rawsplat.x, align 4
+  %1 = load i32, ptr %.anon, align 4
+  %mul = mul i32 %1, 0
+  %add = add i32 %0, %mul
+  store i32 %add, ptr @rawsplat.x, align 4
+  %2 = load i32, ptr @rawsplat.x, align 4
+  %ptradd = getelementptr inbounds i8, ptr %.anon, i64 4
+  %3 = load i32, ptr %ptradd, align 4
+  %mul1 = mul i32 %3, 1
+  %add2 = add i32 %2, %mul1
+  store i32 %add2, ptr @rawsplat.x, align 4
+  %4 = load i32, ptr @rawsplat.x, align 4
+  %ptradd3 = getelementptr inbounds i8, ptr %.anon, i64 8
+  %5 = load i32, ptr %ptradd3, align 4
+  %mul4 = mul i32 %5, 2
+  %add5 = add i32 %4, %mul4
+  store i32 %add5, ptr @rawsplat.x, align 4
+  call void @llvm.memcpy.p0.p0.i32(ptr align 4 %.anon6, ptr align 4 %y, i32 12, i1 false)
+  %6 = load i32, ptr @rawsplat.x, align 4
+  %add7 = add i32 %6, 0
+  store i32 %add7, ptr @rawsplat.x, align 4
+  %7 = load i32, ptr @rawsplat.x, align 4
+  %8 = load i32, ptr %.anon6, align 4
+  %mul8 = mul i32 %8, 1
+  %add9 = add i32 %7, %mul8
+  store i32 %add9, ptr @rawsplat.x, align 4
+  %9 = load i32, ptr @rawsplat.x, align 4
+  %ptradd10 = getelementptr inbounds i8, ptr %.anon6, i64 4
+  %10 = load i32, ptr %ptradd10, align 4
+  %mul11 = mul i32 %10, 2
+  %add12 = add i32 %9, %mul11
+  store i32 %add12, ptr @rawsplat.x, align 4
+  %11 = load i32, ptr @rawsplat.x, align 4
+  %ptradd13 = getelementptr inbounds i8, ptr %.anon6, i64 8
+  %12 = load i32, ptr %ptradd13, align 4
+  %mul14 = mul i32 %12, 3
+  %add15 = add i32 %11, %mul14
+  store i32 %add15, ptr @rawsplat.x, align 4
+  %13 = insertvalue %"int[]" undef, ptr %y, 0
+  %14 = insertvalue %"int[]" %13, i64 3, 1
+  store %"int[]" %14, ptr %z, align 8
+  %15 = load %"int[]", ptr %z, align 8
+  %16 = extractvalue %"int[]" %15, 0
+  %ptradd16 = getelementptr inbounds i8, ptr %16, i64 4
+  %17 = insertvalue %"int[]" undef, ptr %ptradd16, 0
+  %18 = insertvalue %"int[]" %17, i64 2, 1
+  %19 = load i32, ptr @rawsplat.x, align 4
+  %20 = extractvalue %"int[]" %18, 0
+  %21 = load i32, ptr %20, align 4
+  %mul17 = mul i32 %21, 0
+  %add18 = add i32 %19, %mul17
+  store i32 %add18, ptr @rawsplat.x, align 4
+  %22 = load i32, ptr @rawsplat.x, align 4
+  %23 = extractvalue %"int[]" %18, 0
+  %ptradd19 = getelementptr inbounds i8, ptr %23, i64 4
+  %24 = load i32, ptr %ptradd19, align 4
+  %mul20 = mul i32 %24, 1
+  %add21 = add i32 %22, %mul20
+  store i32 %add21, ptr @rawsplat.x, align 4
+  %25 = load %"int[]", ptr %z, align 8
+  %26 = extractvalue %"int[]" %25, 0
+  %ptradd22 = getelementptr inbounds i8, ptr %26, i64 4
+  %27 = insertvalue %"int[]" undef, ptr %ptradd22, 0
+  %28 = insertvalue %"int[]" %27, i64 2, 1
+  %29 = load i32, ptr @rawsplat.x, align 4
+  %add23 = add i32 %29, 0
+  store i32 %add23, ptr @rawsplat.x, align 4
+  %30 = load i32, ptr @rawsplat.x, align 4
+  %31 = extractvalue %"int[]" %28, 0
+  %32 = load i32, ptr %31, align 4
+  %mul24 = mul i32 %32, 1
+  %add25 = add i32 %30, %mul24
+  store i32 %add25, ptr @rawsplat.x, align 4
+  %33 = load i32, ptr @rawsplat.x, align 4
+  %34 = extractvalue %"int[]" %28, 0
+  %ptradd26 = getelementptr inbounds i8, ptr %34, i64 4
+  %35 = load i32, ptr %ptradd26, align 4
+  %mul27 = mul i32 %35, 2
+  %add28 = add i32 %33, %mul27
+  store i32 %add28, ptr @rawsplat.x, align 4
+  %36 = load i32, ptr @rawsplat.x, align 4
+  %add29 = add i32 %36, 15
+  store i32 %add29, ptr @rawsplat.x, align 4
+  ret void
+}

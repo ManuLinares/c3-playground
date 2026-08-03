@@ -1,0 +1,165 @@
+module std::thread::pool <SIZE>;
+import std::thread;
+
+struct ThreadPool @deprecated
+{
+	Mutex mu;
+	QueueItem[SIZE] queue;
+	sz qindex;
+	sz qworking;
+	sz num_threads;
+	bitstruct : char
+	{
+		bool initialized;
+		bool stop;
+		bool stop_now;
+		bool joining;
+	}
+
+	Thread[SIZE] pool;
+	ConditionVariable notify;
+	ConditionVariable collect;
+}
+
+struct QueueItem @private
+{
+	ThreadFn func;
+	void* arg;
+}
+
+<*
+ @require !self.initialized : "ThreadPool must not be already initialized"
+*>
+fn void? ThreadPool.init(&self, ThreadSettings thread_settings = {})
+{
+	defer catch self.destroy();
+	*self = { .num_threads = SIZE, .initialized = true };
+	self.mu.init()!;
+	self.notify.init()!;
+	self.collect.init()!;
+	foreach (&thread : self.pool)
+	{
+		thread.create(&process_work, self, thread_settings)!;
+		// The thread resources will be cleaned up when the thread exits.
+		thread.detach()!;
+	}
+}
+
+<*
+ Join all threads in the pool.
+*>
+fn void ThreadPool.join(&self)
+{
+	if (self.initialized)
+	{
+		self.mu.lock();
+		self.joining = true;
+		self.notify.broadcast();
+		self.collect.wait(&self.mu);
+		self.joining = false;
+		self.mu.unlock();
+	}
+}
+
+<*
+ Stop all the threads and cleanup the pool.
+ Any pending work will be dropped.
+*>
+fn void ThreadPool.destroy(&self)
+{
+	@_threadPool_shutdown(self, self.stop_now);
+}
+
+<*
+ Stop all the threads and cleanup the pool.
+ Any pending work will be processed.
+*>
+fn void ThreadPool.stop_and_destroy(&self)
+{
+	@_threadPool_shutdown(self, self.stop);
+}
+
+macro void @_threadPool_shutdown(ThreadPool* self, #stop) @private
+{
+	if (self.initialized)
+	{
+		self.mu.lock();
+		#stop = true;
+		self.notify.broadcast();
+		self.mu.unlock();
+		// Wait for all threads to shutdown.
+		while (true)
+		{
+			self.mu.lock();
+			defer self.mu.unlock();
+			if (self.num_threads == 0)
+			{
+				break;
+			}
+			self.notify.signal();
+		}
+		self.mu.destroy();
+		self.notify.destroy();
+		self.collect.destroy();
+		self.initialized = false;
+	}
+}
+
+<*
+ Push a new job to the pool.
+ Blocks the current thread if the queue is full.
+*>
+fn void ThreadPool.push(&self, ThreadFn func, void* arg)
+{
+	while (true)
+	{
+		self.mu.lock();
+		defer self.mu.unlock();
+		if (self.qindex < SIZE)
+		{
+			self.queue[self.qindex] = { .func = func, .arg = arg };
+			self.qindex++;
+			self.qworking++;
+			// Notify the threads that work is available.
+			self.notify.broadcast();
+			return;
+		}
+	}
+}
+
+fn int process_work(void* arg) @private
+{
+	ThreadPool* self = arg;
+	while (true)
+	{
+		self.mu.lock();
+		// Wait for work.
+		while (self.qindex == 0)
+		{
+			if (self.joining && self.qworking == 0) self.collect.broadcast();
+			if (self.stop)
+			{
+				// Shutdown requested.
+				self.num_threads--;
+				self.mu.unlock();
+				return 0;
+			}
+			self.notify.wait(&self.mu);
+			if (self.stop_now)
+			{
+				// Shutdown requested.
+				self.num_threads--;
+				self.mu.unlock();
+				return 0;
+			}
+		}
+		// Process the job.
+		self.qindex--;
+		QueueItem item = self.queue[self.qindex];
+		self.mu.unlock();
+		item.func(item.arg);
+		self.mu.lock();
+		self.qworking--;
+		self.mu.unlock();
+	}
+}

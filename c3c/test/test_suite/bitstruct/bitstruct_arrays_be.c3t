@@ -1,0 +1,136 @@
+// #target: macos-x64
+module foo;
+
+module foo;
+
+bitstruct BitField3 : char[4] @bigendian
+{
+    uint c : 4..19;
+}
+
+bitstruct BitField4 : char[4]
+{
+    uint c : 4..19;
+}
+
+extern fn void printf(char*, ...);
+
+fn void main()
+{
+    test3();
+}
+fn void test3()
+{
+    //BitField3 xx = { 0xdeadbeef };
+    BitField3 xx = { 0xbeaf };
+    printf("%x = beaf\n", xx.c);
+    BitField4 xy = { 0xbeaf };
+    void *abc = &xy;
+    char[4]* z = abc;
+    printf("%x = beaf\n", xy.c);
+    xy.c = 0xbeef;
+    printf("%x = beef\n", xy.c);
+    xx.c = 0xbeef;
+    printf("%x = beef\n", xx.c);
+}
+
+
+/* #expect: foo.ll
+
+define void @foo.test3() #0 {
+entry:
+  %xx = alloca [4 x i8], align 1
+  %xy = alloca [4 x i8], align 1
+  %abc = alloca ptr, align 8
+  %z = alloca ptr, align 8
+  store [4 x i8] c"\B0\EA\0F\00", ptr %xx, align 1
+  %0 = load i8, ptr %xx, align 1
+  %zext = zext i8 %0 to i32
+  %lshrl = lshr i32 %zext, 4
+  %shl = shl i32 %lshrl, 12
+  %ptradd = getelementptr inbounds i8, ptr %xx, i64 1
+  %1 = load i8, ptr %ptradd, align 1
+  %zext1 = zext i8 %1 to i32
+  %shl2 = shl i32 %zext1, 4
+  %2 = or i32 %shl, %shl2
+  %ptradd3 = getelementptr inbounds i8, ptr %xx, i64 2
+  %3 = load i8, ptr %ptradd3, align 1
+  %zext4 = zext i8 %3 to i32
+  %4 = and i32 15, %zext4
+  %5 = or i32 %2, %4
+  %6 = and i32 65535, %5
+  call void (ptr, ...) @printf(ptr @.str, i32 %6)
+  store [4 x i8] c"\F0\EA\0B\00", ptr %xy, align 1
+  store ptr %xy, ptr %abc, align 8
+  %7 = load ptr, ptr %abc, align 8
+  store ptr %7, ptr %z, align 8
+  %8 = load i8, ptr %xy, align 1
+  %zext5 = zext i8 %8 to i32
+  %lshrl6 = lshr i32 %zext5, 4
+  %ptradd7 = getelementptr inbounds i8, ptr %xy, i64 1
+  %9 = load i8, ptr %ptradd7, align 1
+  %zext8 = zext i8 %9 to i32
+  %shl9 = shl i32 %zext8, 4
+  %10 = or i32 %lshrl6, %shl9
+  %ptradd10 = getelementptr inbounds i8, ptr %xy, i64 2
+  %11 = load i8, ptr %ptradd10, align 1
+  %zext11 = zext i8 %11 to i32
+  %shl12 = shl i32 %zext11, 12
+  %12 = or i32 %10, %shl12
+  %13 = and i32 65535, %12
+  call void (ptr, ...) @printf(ptr @.str.1, i32 %13)
+  %14 = load i8, ptr %xy, align 1
+  %15 = and i8 %14, 15
+  %16 = or i8 %15, -16
+  store i8 %16, ptr %xy, align 1
+  %ptradd13 = getelementptr inbounds i8, ptr %xy, i64 1
+  store i8 -18, ptr %ptradd13, align 1
+  %ptradd14 = getelementptr inbounds i8, ptr %xy, i64 2
+  %17 = load i8, ptr %ptradd14, align 1
+  %18 = and i8 %17, -16
+  %19 = or i8 %18, 11
+  store i8 %19, ptr %ptradd14, align 1
+  %20 = load i8, ptr %xy, align 1
+  %zext15 = zext i8 %20 to i32
+  %lshrl16 = lshr i32 %zext15, 4
+  %ptradd17 = getelementptr inbounds i8, ptr %xy, i64 1
+  %21 = load i8, ptr %ptradd17, align 1
+  %zext18 = zext i8 %21 to i32
+  %shl19 = shl i32 %zext18, 4
+  %22 = or i32 %lshrl16, %shl19
+  %ptradd20 = getelementptr inbounds i8, ptr %xy, i64 2
+  %23 = load i8, ptr %ptradd20, align 1
+  %zext21 = zext i8 %23 to i32
+  %shl22 = shl i32 %zext21, 12
+  %24 = or i32 %22, %shl22
+  %25 = and i32 65535, %24
+  call void (ptr, ...) @printf(ptr @.str.2, i32 %25)
+  %26 = load i8, ptr %xx, align 1
+  %27 = and i8 %26, 15
+  %28 = or i8 %27, -80
+  store i8 %28, ptr %xx, align 1
+  %ptradd23 = getelementptr inbounds i8, ptr %xx, i64 1
+  store i8 -18, ptr %ptradd23, align 1
+  %ptradd24 = getelementptr inbounds i8, ptr %xx, i64 2
+  %29 = load i8, ptr %ptradd24, align 1
+  %30 = and i8 %29, -16
+  %31 = or i8 %30, 15
+  store i8 %31, ptr %ptradd24, align 1
+  %32 = load i8, ptr %xx, align 1
+  %zext25 = zext i8 %32 to i32
+  %lshrl26 = lshr i32 %zext25, 4
+  %shl27 = shl i32 %lshrl26, 12
+  %ptradd28 = getelementptr inbounds i8, ptr %xx, i64 1
+  %33 = load i8, ptr %ptradd28, align 1
+  %zext29 = zext i8 %33 to i32
+  %shl30 = shl i32 %zext29, 4
+  %34 = or i32 %shl27, %shl30
+  %ptradd31 = getelementptr inbounds i8, ptr %xx, i64 2
+  %35 = load i8, ptr %ptradd31, align 1
+  %zext32 = zext i8 %35 to i32
+  %36 = and i32 15, %zext32
+  %37 = or i32 %34, %36
+  %38 = and i32 65535, %37
+  call void (ptr, ...) @printf(ptr @.str.3, i32 %38)
+  ret void
+}

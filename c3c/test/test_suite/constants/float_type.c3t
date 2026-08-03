@@ -1,0 +1,11 @@
+// #target: macos-x64
+module test;
+uint f0 = $Typeof(1.0f)::size;
+uint f32 = $Typeof(1.0f)::size;
+uint f64 = $Typeof(1.0d)::size;
+
+/* #expect: test.ll
+
+@test.f0 = local_unnamed_addr global i32 4, align 4
+@test.f32 = local_unnamed_addr global i32 4, align 4
+@test.f64 = local_unnamed_addr global i32 8, align 4

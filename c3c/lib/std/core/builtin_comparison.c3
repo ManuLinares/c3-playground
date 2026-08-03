@@ -1,0 +1,164 @@
+// Copyright (c) 2021-2024 Christoffer Lerno and contributors. All rights reserved.
+// Use of this source code is governed by the MIT license
+// a copy of which can be found in the LICENSE_STDLIB file.
+module std::core::builtin;
+
+<*
+ @require $defined(a < b) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b))
+*>
+macro bool less(a, b) @builtin
+{
+	$switch:
+	$case $defined(a.less):
+		return a.less(b);
+	$case $defined(a.compare_to):
+		return a.compare_to(b) < 0;
+	$default:
+		return a < b;
+	$endswitch
+}
+
+<*
+ @require $defined(a < b) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b))
+*>
+macro bool less_eq(a, b) @builtin
+{
+	$switch:
+	$case $defined(a.less):
+		return !b.less(a);
+	$case $defined(a.compare_to):
+		return a.compare_to(b) <= 0;
+	$default:
+		return a <= b;
+	$endswitch
+}
+
+<*
+ @require $defined(a < b) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b))
+*>
+macro bool greater(a, b) @builtin
+{
+	$switch:
+	$case $defined(a.less):
+		return b.less(a);
+	$case $defined(a.compare_to):
+		return a.compare_to(b) > 0;
+	$default:
+		return a > b;
+	$endswitch
+}
+
+<*
+ @require $defined(a < b) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b))
+*>
+macro int compare_to(a, b) @builtin
+{
+	$switch:
+	$case $defined(a.compare_to):
+		return a.compare_to(b);
+	$case $defined(a.less):
+		return (int)b.less(a) - (int)a.less(b);
+	$default:
+		return (int)(a > b) - (int)(a < b);
+	$endswitch
+}
+<*
+ @require $defined(a < b) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b))
+*>
+macro bool greater_eq(a, b) @builtin
+{
+	$switch:
+	$case $defined(a.less):
+		return !a.less(b);
+	$case $defined(a.compare_to):
+		return a.compare_to(b) >= 0;
+	$default:
+		return a >= b;
+	$endswitch
+}
+
+<*
+ @require $defined(a == b) ||| $defined(a.equals(b)) ||| $defined(a.less(b)) ||| $defined(a.compare_to(b)) : `values must be equatable`
+*>
+macro bool equals(a, b) @builtin
+{
+	$switch:
+	$case $defined(a.equals, a.equals(b)):
+		return a.equals(b);
+	$case $defined(a.compare_to, a.compare_to(b)):
+		return a.compare_to(b) == 0;
+	$case $defined(a.less):
+		return !a.less(b) && !b.less(a);
+	$default:
+		return a == b;
+	$endswitch
+}
+
+macro min(x, ...) @builtin
+{
+	$if $vaarg.len == 1:
+		return less(x, $vaarg[0]) ? x : $vaarg[0];
+	$else
+		var result = x;
+		$for var $i = 0; $i < $vaarg.len; $i++:
+			if (less($vaarg[$i], result))
+			{
+				 result = $vaarg[$i];
+			}
+		$endfor
+		return result;
+	$endif
+}
+
+macro max(x, ...) @builtin
+{
+	$if $vaarg.len == 1:
+		return greater(x, $vaarg[0]) ? x : $vaarg[0];
+	$else
+		var result = x;
+		$for var $i = 0; $i < $vaarg.len; $i++:
+			if (greater($vaarg[$i], result))
+			{
+				 result = $vaarg[$i];
+			}
+		$endfor
+		return result;
+	$endif
+}
+
+
+
+<*
+ @require types::is_numerical($Typeof($a))
+ @require values::@all_const(...$vaarg) : "All values must be constant"
+*>
+macro @max($a, ...) @builtin @const
+{
+	$if $vaarg.len == 1:
+		return $a > $vaarg[0] ? $a : $vaarg[0];
+	$else
+		var $result = $a;
+		$for var $x = 0; $x < $vaarg.len; ++$x:
+			$if $vaarg[$x] > $result: $result = $vaarg[$x]; $endif
+		$endfor
+		return $result;
+	$endif
+}
+
+<*
+ @require types::is_numerical($Typeof($a))
+ @require values::@all_const(...$vaarg) : "All values must be constant"
+*>
+macro @min($a, ...) @builtin @const
+{
+	$if $vaarg.len == 1:
+		return $a < $vaarg[0] ? $a : $vaarg[0];
+	$else
+		var $result = $a;
+		$for var $x = 0; $x < $vaarg.len; ++$x:
+			$if $vaarg[$x] < $result: $result = $vaarg[$x]; $endif
+		$endfor
+		return $result;
+	$endif
+}
+

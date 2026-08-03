@@ -1,0 +1,11 @@
+module fixedlist <Type, MAX_SIZE>;
+int a, b, c;
+module bar;
+import fixedlist;
+fn int main()
+{
+	int g = fixedlist::a{int, 2};
+	int g2 = fixedlist::b{int, 2};
+	fixedlist::b{int, 2} = 3;
+	return 0;
+}

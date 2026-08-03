@@ -1,0 +1,46 @@
+// #target: macos-x64
+module test;
+import std;
+
+enum Foo : (String x, int val)
+{
+	ABC { "Hello", 3 },
+	DEF { "World", -100 },
+}
+
+fn int main()
+{
+	var $member0 = Foo::members[0];
+	var $member1 = Foo::members[1];
+	$assert Foo.ABC.$member0 == "Hello";
+	$assert Foo.DEF.$eval(Foo::members[0]) == "World";
+	$assert Foo.ABC.$member1 == 3;
+	$assert Foo.DEF.$member1 == -100;
+	$assert Foo::members[0].type == String;
+	$assert Foo::members[0].name == "x";
+	Foo f = ABC;
+	assert(f.$member1 == 3);
+	f = DEF;
+	assert(f.$member1 == -100);
+	return 0;
+}
+
+/* #expect: test.ll
+
+define i32 @main() #0 {
+entry:
+  %f = alloca i32, align 4
+  store i32 0, ptr %f, align 4
+  %0 = load i32, ptr %f, align 4
+  %ptroffset = getelementptr inbounds [4 x i8], ptr @"test.Foo$val", i32 %0
+  %1 = load i32, ptr %ptroffset, align 4
+  %eq = icmp eq i32 %1, 3
+  call void @llvm.assume(i1 %eq)
+  store i32 1, ptr %f, align 4
+  %2 = load i32, ptr %f, align 4
+  %ptroffset1 = getelementptr inbounds [4 x i8], ptr @"test.Foo$val", i32 %2
+  %3 = load i32, ptr %ptroffset1, align 4
+  %eq2 = icmp eq i32 %3, -100
+  call void @llvm.assume(i1 %eq2)
+  ret i32 0
+}

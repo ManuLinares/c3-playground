@@ -1,0 +1,239 @@
+// Copyright (c) 2020 Christoffer Lerno. All rights reserved.
+// Use of this source code is governed by a LGPLv3.0
+// a copy of which can be found in the LICENSE file.
+
+#include "compiler/c_abi_internal.h"
+
+INLINE bool is_aarch64_illegal_vector(Type *type)
+{
+	if (type->type_kind != TYPE_SIMD_VECTOR)
+	{
+		// Return true if scaled vector
+		return false;
+	}
+	ArraySize len = type->array.len;
+	ASSERT(is_power_of_two(len) && "@simd is enforced to pot sizes, otherwise this would be 'illegal' and handled.");
+	switch (type_size(type))
+	{
+		case 8:
+			return false;
+		case 16:
+			return len == 1;
+		default:
+			return true;
+	}
+}
+
+ABIArgInfo *aarch64_coerce_illegal_vector(Type *type, ParamInfo param)
+{
+	if (false /*type->type_kind == TYPE_SCALED_VECTOR*/)
+	{
+		/*
+		Type *base_type = type->array.base;
+		if (base_type == type_bool) return abi_arg_new_direct_coerce_type(type_get_scaled_vector(type_bool, 16));
+		switch (type->type_kind)
+		{
+			case TYPE_U8:
+			case TYPE_I8:
+				return abi_arg_new_direct_coerce_type(type_get_scaled_vector(type_char, 16));
+			case TYPE_U16:
+			case TYPE_I16:
+				return abi_arg_new_direct_coerce_type(type_get_scaled_vector(type_ushort, 8));
+			case TYPE_I32:
+			case TYPE_U32:
+				return abi_arg_new_direct_coerce_type(type_get_scaled_vector(type_uint, 4));
+			case TYPE_I64:
+			case TYPE_U64:
+				return abi_arg_new_direct_coerce_type(type_get_scaled_vector(type_uint, 2));
+			case TYPE_F16:
+				return abi_arg_new_direct_coerce_type(type_get_scaled_vector(type_float16, 8));
+			case TYPE_F32:
+				return abi_arg_new_direct_coerce_type(type_get_scaled_vector(type_float, 4));
+			case TYPE_F64:
+				return abi_arg_new_direct_coerce_type(type_get_scaled_vector(type_double, 4));
+			case TYPE_BF16:
+				return abi_arg_new_direct_coerce_type(type_get_scaled_vector(type_bfloat16, 8));
+			default:
+				UNREACHABLE
+		}*/
+	}
+	ASSERT(type->type_kind == TYPE_SIMD_VECTOR);
+	TypeSize size = type_size(type);
+
+	// CLANG: Android promotes char[<2>] to ushort, not uint
+	if ((compiler.platform.environment_type == ENV_TYPE_ANDROID || compiler.platform.os == OS_TYPE_ANDROID) && size <= 2)
+	{
+		return abi_arg_new_direct_coerce_type_bits(16, param);
+	}
+	// 32 bits or fewer? Put in int.
+	if (size <= 4) return abi_arg_new_direct_coerce_type_bits(32, param);
+
+	// 64 bits or less? Put in uint[<2>]
+	if (size <= 8) return abi_arg_new_direct_coerce_type(abi_type_spec(ABI_TYPE_INT_VEC_2), param);
+	// 128 bits in a single val? Put in uint[<4>]
+	if (size == 128) return abi_arg_new_direct_coerce_type(abi_type_spec(ABI_TYPE_INT_VEC_4), param);
+	return abi_arg_new_indirect_not_by_val(type, param);
+}
+
+static ABIArgInfo *aarch64_classify_argument_type(ParamInfo param)
+{
+	Type *type = type_lowering(param.type);
+
+	if (type_is_void(type)) return abi_arg_ignore();
+
+	if (is_aarch64_illegal_vector(type))
+	{
+		return aarch64_coerce_illegal_vector(type, param);
+	}
+
+	TypeSize size = type_size(type);
+
+	if (!type_is_abi_aggregate(type))
+	{
+		// Over 128 bits should be indirect, but
+		// we don't have that (yet?)
+		if (type_is_promotable_int_bool(type) && compiler.platform.aarch64.is_darwin_pcs)
+		{
+			return abi_arg_new_direct_int_ext(type, param);
+		}
+		return abi_arg_new_direct(param);
+	}
+
+	// Is empty
+	if (!size) return abi_arg_ignore();
+
+	// Homogeneous Floating-point Aggregates (HFAs) need to be expanded.
+	Type *base = NULL;
+	unsigned members = 0;
+	if (type_is_homogeneous_aggregate(type, &base, &members))
+	{
+		ASSERT(members < 128);
+		if (members > 1)
+		{
+			return abi_arg_new_direct_coerce_type(abi_type_get(type_get_array(base, members)), param);
+		}
+		return abi_arg_new_direct_coerce_type(abi_type_get(base), param);
+	}
+
+	// Aggregates <= in registers
+	if (size <= 16)
+	{
+		// For RenderScript <= 16 needs to be coerced.
+		AlignSize alignment = type_abi_alignment(type);
+		if (compiler.platform.aarch64.is_aapcs)
+		{
+			alignment = alignment < 16 ? 8 : 16;
+		}
+		else
+		{
+			if (alignment < type_abi_alignment(type_voidptr))
+			{
+				alignment = type_abi_alignment(type_voidptr);
+			}
+		}
+		size = aligned_offset(size, alignment);
+		// We use a pair of i64 for 16-byte aggregate with 8-byte alignment.
+		// For aggregates with 16-byte alignment, we use i128.
+		ASSERT(alignment == 8 || alignment == 16);
+
+		if (alignment == 16) return abi_arg_new_direct_coerce_type_bits(128, param);
+		ArraySize m = size / alignment;
+		if (m > 1) return abi_arg_new_direct_coerce_type(abi_type_get(type_get_array(type_ulong, m)), param);
+		return abi_arg_new_direct_coerce_type_bits(64, param);
+
+	}
+
+	return abi_arg_new_indirect_not_by_val(type, param);
+}
+
+ABIArgInfo *aarch64_classify_return_type(ParamInfo param, bool variadic)
+{
+	Type *type = type_lowering(param.type);
+
+	if (type_is_void(type)) return abi_arg_ignore();
+
+	if (is_aarch64_illegal_vector(type))
+	{
+		return aarch64_coerce_illegal_vector(type, param);
+	}
+
+	TypeSize size = type_size(type);
+
+	// Large vectors by mem.
+	if (type->type_kind == TYPE_SIMD_VECTOR && size > 16)
+	{
+		return abi_arg_new_direct_coerce_type(abi_type_get(type), param);
+	}
+
+	if (!type_is_abi_aggregate(type))
+	{
+		if (type_is_promotable_int_bool(type) && compiler.platform.aarch64.is_darwin_pcs)
+		{
+			return abi_arg_new_direct_int_ext(type, param);
+		}
+		return abi_arg_new_direct(param);
+	}
+
+	// Abi aggregate:
+
+	// Is empty
+	if (!size) return abi_arg_ignore();
+
+	Type *base = NULL;
+	unsigned members = 0;
+	if (type_is_homogeneous_aggregate(type, &base, &members) &&
+		!(compiler.platform.arch == ARCH_TYPE_AARCH64_32 && variadic))
+	{
+		return abi_arg_new_direct(param);
+	}
+
+	// Aggregates <= in registers
+	if (size <= 16)
+	{
+		// For RenderScript <= 16 needs to be coerced to ints
+		// this is case is ignored here but needs to be added
+		// in case it is to be supported.
+
+		if (size <= 8 && !compiler.platform.big_endian)
+		{
+			return abi_arg_new_direct_coerce_int(param);
+		}
+
+		unsigned alignment = type_abi_alignment(type);
+		// Align to multiple of 8.
+		size = aligned_offset(size, 8);
+		if (alignment < 16 && size == 16)
+		{
+			return abi_arg_new_direct_coerce_type(abi_type_get(type_get_array(type_ulong, size / 8)), param);
+		}
+		return abi_arg_new_direct_coerce_type_bits(size * 8, param);
+	}
+
+	return abi_arg_new_indirect_by_val(type, param);
+}
+
+
+void c_abi_func_create_aarch64(FunctionPrototype *prototype, ParamInfo *params, unsigned param_count, ParamInfo *vaargs, unsigned vaarg_count)
+{
+
+	prototype->ret_abi_info = aarch64_classify_return_type(prototype->return_info, prototype->raw_variadic);
+
+	if (param_count)
+	{
+		ABIArgInfo **args = MALLOC(sizeof(ABIArgInfo) * param_count);
+		for (unsigned i = 0; i < param_count; i++)
+		{
+			args[i] = aarch64_classify_argument_type(params[i]);
+		}
+		prototype->abi_args = args;
+	}
+	if (vaarg_count)
+	{
+		ABIArgInfo **args = MALLOC(sizeof(ABIArgInfo) * vaarg_count);
+		for (unsigned i = 0; i < vaarg_count; i++)
+		{
+			args[i] = aarch64_classify_argument_type(vaargs[i]);
+		}
+		prototype->abi_varargs = args;
+	}
+}

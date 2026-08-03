@@ -1,0 +1,109 @@
+# Prerequisites
+*.d
+testrun
+benchmarkrun
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+*.ll
+*.wasm
+*.s
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.tlb
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+/build/
+.idea/
+/resources/grammar.tab.c
+/resources/grammar.vcg
+/resources/lex.yy.c
+/resources/y.tab.c
+/resources/y.tab.h
+/bin/
+
+#visual studio files
+.vs/
+.vscode/
+out/
+
+/cmake-build-debug/
+/cmake-build-release/
+
+CMakeFiles/cmake.check_cache
+CMakeCache.txt
+
+# etags(Emacs), ctags, gtags
+TAGS
+GPATH
+GRTAGS
+GTAGS
+tags
+
+# Clangd LSP files
+/.cache/
+/compile_commands.json
+
+# Nix
+result
+/.envrc
+/.direnv/
+
+# macOS
+.DS_Store
+
+# tests
+/test/tmp/*
+testrun
+test_suite_runner
+
+# patches, originals and rejects
+*.patch
+*.rej
+*.orig
+
+
+__cmake_systeminformation

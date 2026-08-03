@@ -1,0 +1,19 @@
+module foo;
+
+faultdef TEST;
+
+module bar;
+import foo;
+
+fn int? abc()
+{
+	return foo::TEST~;
+}
+
+module baz;
+import foo;
+
+fn int? abc()
+{
+	return foo::TEST~;
+}

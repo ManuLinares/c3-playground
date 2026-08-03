@@ -1,0 +1,12 @@
+module std::test;
+
+fn void main()
+{
+    $$breakpoint();
+    $$trap();
+}
+
+/* #expect: std.test.ll
+
+  call void @llvm.debugtrap()
+  call void @llvm.trap()

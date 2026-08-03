@@ -1,0 +1,24 @@
+// #target: macos-x64
+module test;
+import std;
+
+const char *VOWS = "aeiou";
+const char *CONS = "bcdfghjklmnpqrstvwxyz";
+
+fn int main (String[] args)
+{
+	char a = *VOWS;
+	char b = *CONS;
+	return 0;
+}
+
+/* #expect: test.ll
+
+@.str = private unnamed_addr constant [6 x i8] c"aeiou\00", align 1
+@test.VOWS = local_unnamed_addr constant ptr @.str, align 8
+@.str.2 = private unnamed_addr constant [22 x i8] c"bcdfghjklmnpqrstvwxyz\00", align 1
+@test.CONS = local_unnamed_addr constant ptr @.str.2, align 8
+
+  store i8 97, ptr %a, align 1
+  store i8 98, ptr %b, align 1
+  ret i32 0

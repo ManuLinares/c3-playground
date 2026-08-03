@@ -1,0 +1,46 @@
+{
+  "version": "0.1.0",
+  "authors": [
+    "John Doe <john.doe@example.com>"
+  ],
+  "langrev": "1",
+  "warnings": [
+    "no-unused"
+  ],
+  // sources compiled
+  "sources": [
+    "src"
+  ],
+  "dependency-search-paths": [ "./lib" ],
+  "dependencies": ["clib", "clib2"],
+  "cpu-flags": ",,",
+  "features": ["ABCD"],
+  "exec": ["scriptme.c3 myarg"],
+  // c sources
+  "targets": {
+    "hello_world": {
+      "type": "executable",
+      "cc" : "cc",
+      "c-sources": [
+        "./csource/**"
+      ],
+      "reloc": "PIE",
+    },
+    "hello_world_win32": {
+      "type": "executable",
+      "c-include-dirs": [ "C:\\"],
+      "c-sources-override": [
+      ]
+    },
+    "hello_world_lib": {
+      "type": "static-lib",
+      "cc" : "cc",
+      "c-sources": [
+        "./csource/**"
+      ]
+    },
+    "hello_world_win32_lib": {
+      "type": "static-lib",
+    }
+  },
+}

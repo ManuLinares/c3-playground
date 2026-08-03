@@ -1,0 +1,675 @@
+module urltest @test;
+
+import std::io;
+import std::net::url;
+
+// Parser tests
+
+fn void test_parse_foo()
+{
+	Url url = url::parse(mem, "foo://example.com:8042/over/there?name=ferret#nose")!!;
+	defer url.free();
+
+	assert(url.scheme == "foo", "got '%s'", url.scheme);
+	assert(url.host == "example.com", "got '%s'", url.host);
+	assert(url.port == 8042, "got '%d'", url.port);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "/over/there", "got '%s'", url.path);
+	assert(url.query == "name=ferret", "got '%s'", url.query);
+	assert(url.fragment == "nose", "got: '%s'", url.fragment);
+}
+
+fn void test_parse_urn()
+{
+	Url url = url::parse(mem, "urn:example:animal:ferret:nose")!!;
+	defer url.free();
+
+	assert(url.scheme == "urn");
+	assert(url.host == "");
+	assert(url.port == 0);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "example:animal:ferret:nose");
+	assert(url.query == "");
+	assert(url.fragment == "");
+}
+
+fn void test_parse_jdbc()
+{
+	Url url = url::parse(mem, "jdbc:mysql://test_user:ouupppssss@localhost:3306/sakila?profileSQL=true")!!;
+	defer url.free();
+
+	assert(url.scheme == "jdbc:mysql");
+	assert(url.host == "localhost");
+	assert(url.port == 3306);
+	assert(url.username == "test_user", "got '%s'", url.username);
+	assert(url.password == "ouupppssss", "got '%s'", url.password);
+	assert(url.path == "/sakila");
+	assert(url.query == "profileSQL=true");
+	assert(url.fragment == "");
+}
+
+fn void test_parse_ftp()
+{
+	Url url = url::parse(mem, "ftp://ftp.is.co.za/rfc/rfc1808.txt")!!;
+	defer url.free();
+
+	assert(url.scheme == "ftp");
+	assert(url.host == "ftp.is.co.za");
+	assert(url.port == 0);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "/rfc/rfc1808.txt");
+	assert(url.query == "");
+	assert(url.fragment == "");
+}
+
+fn void test_parse_http()
+{
+	Url url = url::parse(mem, "http://www.ietf.org/rfc/rfc2396.txt#header1")!!;
+	defer url.free();
+
+	assert(url.scheme == "http");
+	assert(url.host == "www.ietf.org");
+	assert(url.port == 0);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "/rfc/rfc2396.txt");
+	assert(url.query == "");
+	assert(url.fragment == "header1");
+}
+
+fn void test_parse_ldap()
+{
+	Url url = url::parse(mem, "ldap://[2001:db8::7]/c=GB?objectClass=one&objectClass=two")!!;
+	defer url.free();
+
+	assert(url.scheme == "ldap");
+	assert(url.host == "[2001:db8::7]");
+	assert(url.port == 0);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "/c=GB");
+	assert(url.query == "objectClass=one&objectClass=two");
+	assert(url.fragment == "");
+}
+
+fn void test_parse_mailto()
+{
+	Url url = url::parse(mem, "mailto:John.Doe@example.com")!!;
+	defer url.free();
+
+	assert(url.scheme == "mailto");
+	assert(url.host == "");
+	assert(url.port == 0);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "John.Doe@example.com");
+	assert(url.query == "");
+	assert(url.fragment == "");
+}
+
+fn void test_new_parses()
+{
+	Url url = url::parse(mem, "news:comp.infosystems.www.servers.unix")!!;
+	defer url.free();
+
+	assert(url.scheme == "news");
+	assert(url.host == "");
+	assert(url.port == 0);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "comp.infosystems.www.servers.unix");
+	assert(url.query == "");
+	assert(url.fragment == "");
+}
+
+fn void test_parse_tel()
+{
+	Url url = url::parse(mem, "tel:+1-816-555-1212")!!;
+	defer url.free();
+
+	assert(url.scheme == "tel");
+	assert(url.host == "");
+	assert(url.port == 0);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "+1-816-555-1212");
+	assert(url.query == "");
+	assert(url.fragment == "");
+}
+
+fn void test_parse_telnet()
+{
+	Url url = url::parse(mem, "telnet://192.0.2.16:80/")!!;
+	defer url.free();
+
+	assert(url.scheme == "telnet");
+	assert(url.host == "192.0.2.16");
+	assert(url.port == 80);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "/");
+	assert(url.query == "");
+	assert(url.fragment == "");
+}
+
+fn void test_parse_urn2()
+{
+	Url url = url::parse(mem, "urn:oasis:names:specification:docbook:dtd:xml:4.1.2")!!;
+	defer url.free();
+
+	assert(url.scheme == "urn");
+	assert(url.host == "");
+	assert(url.port == 0);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "oasis:names:specification:docbook:dtd:xml:4.1.2");
+	assert(url.query == "");
+	assert(url.fragment == "");
+}
+
+fn void test_parse_empty()
+{
+	assert(@catch(url::parse(mem, "       ")) == url::EMPTY);
+}
+
+// Parser tests with escape sequences
+
+fn void test_parse_path_with_escape_sequence()
+{
+	Url url = url::parse(mem, "foo://example.com:8042/file/name%20one%26two?name=ferret#nose")!!;
+	defer url.free();
+
+	assert(url.scheme == "foo", "got '%s'", url.scheme);
+	assert(url.host == "example.com", "got '%s'", url.host);
+	assert(url.port == 8042, "got '%d'", url.port);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "/file/name one&two", "got '%s'", url.path);
+	assert(url.query == "name=ferret", "got '%s'", url.query);
+	assert(url.fragment == "nose", "got: '%s'", url.fragment);
+}
+
+fn void test_parse_username_and_password_with_escape_sequence()
+{
+	Url url = url::parse(mem, "jdbc:mysql://test%20user:ouu%40pppssss@localhost:3306/sakila?profileSQL=true")!!;
+	defer url.free();
+
+	assert(url.scheme == "jdbc:mysql");
+	assert(url.host == "localhost");
+	assert(url.port == 3306);
+	assert(url.username == "test user", "got '%s'", url.username);
+	assert(url.password == "ouu@pppssss", "got '%s'", url.password);
+	assert(url.path == "/sakila");
+	assert(url.query == "profileSQL=true");
+	assert(url.fragment == "");
+}
+
+fn void test_parse_fragment_with_escape_sequence()
+{
+	Url url = url::parse(mem, "http://www.ietf.org/rfc/rfc2396.txt#header%201%262")!!;
+	defer url.free();
+
+	assert(url.scheme == "http");
+	assert(url.host == "www.ietf.org");
+	assert(url.port == 0);
+	assert(url.username == "", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "/rfc/rfc2396.txt");
+	assert(url.query == "");
+	assert(url.fragment == "header 1&2");
+}
+
+// to_string() tests
+
+fn void test_string_foo()
+{
+	Url url = {.scheme="foo", .host="example.com", .port=8042, .path="/over/there", .query="name=ferret", .fragment="nose"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+
+	assert(str == "foo://example.com:8042/over/there?name=ferret#nose");
+}
+
+fn void test_string_urn()
+{
+	Url url = {.scheme="urn", .path="example:animal:ferret:nose"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+
+	assert(str == "urn:example:animal:ferret:nose");
+}
+
+fn void test_string_jdbc()
+{
+	Url url = {.scheme="jdbc:mysql", .host="localhost", .port=3306, .username="test_user", .password="ouupppssss", .path="/sakila", .query="profileSQL=true"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+
+	assert(str == "jdbc:mysql://test_user:ouupppssss@localhost:3306/sakila?profileSQL=true");
+}
+
+fn void test_string_ftp()
+{
+	Url url = {.scheme="ftp", .host="ftp.is.co.za", .path="/rfc/rfc1808.txt"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+
+	assert(str == "ftp://ftp.is.co.za/rfc/rfc1808.txt");
+}
+
+fn void test_string_http()
+{
+	Url url = {.scheme="http", .host="www.ietf.org", .path="/rfc/rfc2396.txt", .fragment="header1"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+
+	assert(str == "http://www.ietf.org/rfc/rfc2396.txt#header1", "got: '%s'", str);
+}
+
+fn void test_string_ldap()
+{
+	Url url = {.scheme="ldap", .host="[2001:db8::7]", .path="/c=GB", .query="objectClass=one&objectClass=two"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+
+	assert(str == "ldap://[2001:db8::7]/c=GB?objectClass=one&objectClass=two", "got: '%s'", str);
+}
+
+fn void test_string_mailto()
+{
+	Url url = {.scheme="mailto", .path="John.Doe@example.com"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+
+	assert(str == "mailto:John.Doe@example.com");
+}
+
+fn void test_string_news()
+{
+	Url url = {.scheme="news", .path="comp.infosystems.www.servers.unix"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+	assert(str == "news:comp.infosystems.www.servers.unix");
+}
+
+fn void test_string_tel()
+{
+	Url url = {.scheme="tel", .path="+1-816-555-1212"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+
+	assert(str == "tel:+1-816-555-1212");
+}
+
+fn void test_string_telnet()
+{
+	Url url = {.scheme="telnet", .host="192.0.2.16", .port=80, .path="/"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+
+	assert(str == "telnet://192.0.2.16:80/");
+}
+
+fn void test_string_urn2()
+{
+	Url url = {.scheme="urn", .path="oasis:names:specification:docbook:dtd:xml:4.1.2"};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+
+	assert(str == "urn:oasis:names:specification:docbook:dtd:xml:4.1.2");
+}
+
+fn void test_string_empty()
+{
+	Url url = {};
+	String str = string::format(mem, "%s", url);
+	defer free(str);
+	test::eq(str, "");
+}
+
+// query_values
+
+fn void test_query_values1()
+{
+	Url url = url::parse(mem, "foo://example.com:8042/over/there?name=ferret=ok#nose")!!;
+	defer url.free();
+
+	UrlQueryValues vals = url::parse_query_to_temp(url.query);
+	defer vals.free();
+
+	assert(vals.len() == 1);
+	UrlQueryValueList l = vals["name"]!!;
+
+	assert(l.len() == 1);
+	assert(l[0] == "ferret=ok");
+}
+
+fn void test_query_values2()
+{
+	Url url = url::parse(mem, "foo://example.com:8042/over/there?name=ferret&age=99&age=11#nose")!!;
+	defer url.free();
+
+	UrlQueryValues vals = url::parse_query(mem, url.query);
+	defer vals.free();
+	assert(vals.len() == 2);
+
+	UrlQueryValueList l_name = vals["name"]!!;
+	assert(l_name.len() == 1);
+	assert(l_name[0] == "ferret");
+
+	UrlQueryValueList l_age = vals["age"]!!;
+	assert(l_age.len() == 2);
+	assert(l_age[0] == "99");
+	assert(l_age[1] == "11");
+}
+
+fn void test_escaped_query_values()
+{
+	Url url = url::parse(mem, "foo://example.com:8042/over/there?k%3Bey=%3Ckey%3A+0x90%3E&age=99&age=11#nose")!!;
+	defer url.free();
+
+	UrlQueryValues vals = url::parse_query(mem, url.query);
+	defer vals.free();
+	assert(vals.len() == 2);
+
+	UrlQueryValueList l_key = vals["k;ey"]!!;
+	assert(l_key.len() == 1);
+	assert(l_key[0] == "<key: 0x90>");
+}
+
+fn void test_query_values_withempty()
+{
+	Url url = url::parse(mem, "foo://example.com:8042/over/there?name=ferret&&&age=99&age=11")!!;
+	defer url.free();
+
+	UrlQueryValues vals = url::parse_query(mem, url.query);
+	defer vals.free();
+	assert(vals.len() == 2);
+}
+
+// url compose and parse should be idempotent
+
+fn void test_url_idempotence()
+{
+	UrlQueryValues query_builder;
+	query_builder.init(mem);
+	defer query_builder.free();
+
+	query_builder.add("profileSQL", "true");
+	query_builder.add("k;ey", "<key: 0x90>");
+
+	String query = string::format(mem, "%s", query_builder);
+	io::printn(query);
+	defer free(query);
+
+	Url url = {
+		.scheme    = "jdbc:mysql",
+		.host      = "localhost",
+		.port      = 3306,
+		.username  = "test user",
+		.password  = "ouu@pppssss",
+		.path      = "/sakila",
+		.query = query,
+		.fragment  = "no se",
+	};
+
+	String url_string = string::format(mem, "%s", url);
+	defer free(url_string);
+
+	String want = "jdbc:mysql://test%20user:ouu%40pppssss@localhost:3306"
+		"/sakila?profileSQL=true&k%3Bey=%3Ckey%3A+0x90%3E#no%20se";
+	assert(url_string == want, "got: %s, want: %s", url_string, want);
+
+	Url parsed = url::parse(mem, url_string)!!;
+	defer parsed.free();
+
+	UrlQueryValues vals = url::parse_query(mem, parsed.query);
+	defer vals.free();
+	assert(vals.len() == 2);
+
+	UrlQueryValueList key;
+	key = vals["k;ey"]!!;
+	assert(key.len() == 1);
+	assert(key[0] == "<key: 0x90>");
+
+	key = vals["profileSQL"]!!;
+	assert(key.len() == 1);
+	assert(key[0] == "true");
+
+	String parsed_query = string::format(mem, "%s", vals);
+	defer free(parsed_query);
+
+	assert(parsed.scheme == url.scheme);
+	assert(parsed.host == url.host);
+	assert(parsed.port == url.port);
+	assert(parsed.username == url.username);
+	assert(parsed.password == url.password);
+	assert(parsed.path == url.path);
+	assert(parsed.query == parsed_query);
+	assert(parsed.fragment == url.fragment);
+
+	String parsed_string = string::format(mem, "%s", parsed);
+	defer free(parsed_string);
+
+	assert(url_string == parsed_string);
+}
+
+fn void test_parse_username_only()
+{
+	Url url = url::parse(mem, "https://alice@example.com/dashboard")!!;
+	defer url.free();
+
+	assert(url.scheme == "https", "got '%s'", url.scheme);
+	assert(url.host == "example.com", "got '%s'", url.host);
+	assert(url.username == "alice", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+	assert(url.path == "/dashboard", "got '%s'", url.path);
+}
+
+fn void test_parse_username_only_with_escape()
+{
+	Url url = url::parse(mem, "https://alice%20smith@example.com/")!!;
+	defer url.free();
+
+	assert(url.username == "alice smith", "got '%s'", url.username);
+	assert(url.password == "", "got '%s'", url.password);
+}
+
+fn void test_parse_ipv6_with_port()
+{
+	Url url = url::parse(mem, "http://[::1]:8080/index")!!;
+	defer url.free();
+
+	assert(url.scheme == "http", "got '%s'", url.scheme);
+	assert(url.host == "[::1]", "got '%s'", url.host);
+	assert(url.port == 8080, "got '%d'", url.port);
+	assert(url.path == "/index", "got '%s'", url.path);
+}
+
+fn void test_parse_ipv6_with_port_full()
+{
+	Url url = url::parse(mem, "https://[2001:db8::7]:443/c=GB?objectClass=one")!!;
+	defer url.free();
+
+	assert(url.scheme == "https", "got '%s'", url.scheme);
+	assert(url.host == "[2001:db8::7]", "got '%s'", url.host);
+	assert(url.port == 443, "got '%d'", url.port);
+	assert(url.path == "/c=GB", "got '%s'", url.path);
+	assert(url.query == "objectClass=one", "got '%s'", url.query);
+}
+
+fn void test_parse_http_authority()
+{
+	Url url = url::parse(mem, "http://example.com")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com");
+	test::eq(url.path, "");
+}
+
+fn void test_parse_http_root()
+{
+	Url url = url::parse(mem, "http://example.com/")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com");
+	test::eq(url.path, "/");
+}
+
+fn void test_parse_http_full()
+{
+	Url url = url::parse(mem, "http://user:password@example.com:8080/path?query=value#fragment")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com");
+	test::eq(url.port, 8080);
+	test::eq(url.username, "user");
+	test::eq(url.password, "password");
+	test::eq(url.path, "/path");
+	test::eq(url.query, "query=value");
+	test::eq(url.fragment, "fragment");
+}
+
+fn void test_parse_http_default_port()
+{
+	Url url = url::parse(mem, "http://example.com:80/")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com");
+	test::eq(url.port, 80);
+	test::eq(url.path, "/");
+}
+
+fn void test_parse_http_port()
+{
+	Url url = url::parse(mem, "http://example.com:8080/")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com");
+	test::eq(url.port, 8080);
+	test::eq(url.path, "/");
+}
+
+fn void test_parse_encoded_dot()
+{
+	Url url = url::parse(mem, "http://example.com/%2E/")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com");
+	test::eq(url.path, "/./");
+}
+
+fn void test_parse_dotdot()
+{
+	Url url = url::parse(mem, "http://example.com/..")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com");
+	test::eq(url.path, "/..");
+}
+
+fn void test_parse_query()
+{
+	Url url = url::parse(mem, "http://example.com/?q=string")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com");
+	test::eq(url.path, "/");
+	test::eq(url.query, "q=string");
+}
+
+fn void test_parse_empty_userinfo()
+{
+	Url url = url::parse(mem, "http://@example.com/")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com");
+	test::eq(url.username, "");
+	test::eq(url.path, "/");
+}
+
+fn void test_parse_empty_user_password()
+{
+	Url url = url::parse(mem, "http://:@example.com/")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com");
+	test::eq(url.username, "");
+	test::eq(url.password, "");
+	test::eq(url.path, "/");
+}
+
+fn void test_parse_trailing_dot_host()
+{
+	Url url = url::parse(mem, "http://example.com./")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "example.com.");
+	test::eq(url.path, "/");
+}
+
+fn void test_parse_ipv6_loopback()
+{
+	Url url = url::parse(mem, "http://[::1]/")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "http");
+	test::eq(url.host, "[::1]");
+	test::eq(url.path, "/");
+}
+
+fn void test_parse_network_path()
+{
+	Url url = url::parse(mem, "//example.com")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "");
+	test::eq(url.host, "example.com");
+	test::eq(url.path, "");
+}
+
+fn void test_parse_network_path_userinfo()
+{
+	Url url = url::parse(mem, "//user@example.com/path?a=b")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "");
+	test::eq(url.host, "example.com");
+	test::eq(url.username, "user");
+	test::eq(url.path, "/path");
+	test::eq(url.query, "a=b");
+}
+
+fn void test_parse_network_path_port()
+{
+	Url url = url::parse(mem, "//example.com:80")!!;
+	defer url.free();
+
+	test::eq(url.scheme, "");
+	test::eq(url.host, "example.com");
+	test::eq(url.port, 80);
+}
+
+fn void test_parse_host_with_crlf()
+{
+	test::@error(url::parse(mem, "http://example.com\r\n/"), url::INVALID_HOST);
+}
+
+fn void test_parse_host_with_encoded_crlf()
+{
+	test::@error(url::parse(mem, "http://example.com%0d%0a/"), url::INVALID_HOST);
+}

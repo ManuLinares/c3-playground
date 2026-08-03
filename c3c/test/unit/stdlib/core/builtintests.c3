@@ -1,0 +1,385 @@
+module std::core::builtins @test;
+
+fn void test_anycast()
+{
+	int a;
+	any b = &a;
+	assert(anycast(b, int)!! == &a);
+	assert(@catch(anycast(b, double)) == TYPE_MISMATCH);
+}
+
+fn void test_bitcast()
+{
+	int a = 123;
+	float z = bitcast(a, float);
+	assert(bitcast(z, int) == a);
+}
+
+enum Tester
+{
+	ABC,
+	DEF,
+}
+
+fn void test_enum_by_name()
+{
+	assert(enum_by_name(Tester, "ABC")!! == Tester.ABC);
+	assert(enum_by_name(Tester, "DEF")!! == Tester.DEF);
+	assert(@catch(enum_by_name(Tester, "GHI")) == NOT_FOUND);
+}
+
+
+faultdef SOME_FAULT, ABC_FAULT;
+
+fn void test_try_catch()
+{
+	int val;
+	int? x = ABC_FAULT~;
+	assert(@try_catch(val, x, ABC_FAULT)!!);
+	assert(val == 0);
+	assert(!@catch(@try_catch(val, x, ABC_FAULT)));
+	x = SOME_FAULT~;
+	assert(@catch(@try_catch(val, x, ABC_FAULT)) == SOME_FAULT);
+	x = 3;
+	assert(!@try_catch(val, x, ABC_FAULT)!!);
+	assert(val == 3);
+}
+
+fn void test_try_set()
+{
+	assert(enum_by_name(Tester, "ABC")!! == Tester.ABC);
+
+	Tester val;
+	if (catch @try(val, enum_by_name(Tester, "ABC"))) abort("Test failure");
+	assert(val == Tester.ABC);
+
+	Tester another;
+	if (catch err = @try(another, enum_by_name(Tester, "GHI")))
+	{
+		assert(err == NOT_FOUND);
+		return;
+	}
+
+	abort("Test failure");
+}
+
+fn void test_likely()
+{
+	int a = 2;
+	int b = 43;
+	if (@likely(a > b, 0.5)) a++;
+	if (@likely(a < b)) b++;
+}
+
+fn void test_unlikely()
+{
+	int a = 2;
+	int b = 43;
+	if (@unlikely(a > b, 0.5)) a++;
+	if (@unlikely(a < b)) b++;
+}
+
+fn void test_expect()
+{
+	int a = 2;
+	int b = 43;
+	int c = @expect(a, 2, 0.5);
+	int d = @expect(b, 2);
+}
+
+
+int abc;
+
+fn void test_prefetch()
+{
+	@prefetch(&abc);
+}
+
+fn void test_hash()
+{
+	(char){}.hash();
+	(char[<100>]){}.hash();
+	(char[100]){}.hash();
+	(ichar){}.hash();
+	(ichar[<100>]){}.hash();
+	(ichar[100]){}.hash();
+	(short){}.hash();
+	(short[<100>]){}.hash();
+	(short[100]){}.hash();
+	(ushort){}.hash();
+	(ushort[<100>]){}.hash();
+	(ushort[100]){}.hash();
+	(int){}.hash();
+	(int[<100>]){}.hash();
+	(int[100]){}.hash();
+	(uint){}.hash();
+	(uint[<100>]){}.hash();
+	(uint[100]){}.hash();
+	(long){}.hash();
+	(long[<20>]){}.hash();
+	(long[100]){}.hash();
+	(ulong){}.hash();
+	(ulong[<20>]){}.hash();
+	(ulong[100]){}.hash();
+	(int128){}.hash();
+	(int128[<20>]){}.hash();
+	(int128[100]){}.hash();
+	(uint128){}.hash();
+	(uint128[<20>]){}.hash();
+	(uint128[100]){}.hash();
+	(bool){}.hash();
+	(bool[<100>]){}.hash();
+	(bool[100]){}.hash();
+	String x = "abc";
+	char[] y = "abc";
+	ZString z = "abc";
+	assert(x.hash() == y.hash());
+	assert(z.hash() == x.hash());
+	assert(int::typeid.hash());
+}
+
+fn void test_hash_repeat()
+{
+	assert((char){}.hash() == (char){}.hash());
+	assert((char[<100>]){}.hash() == (char[<100>]){}.hash());
+	assert((char[100]){}.hash() == (char[100]){}.hash());
+	assert((ichar){}.hash() == (ichar){}.hash());
+	assert((ichar[<100>]){}.hash() == (ichar[<100>]){}.hash());
+	assert((ichar[100]){}.hash() == (ichar[100]){}.hash());
+	assert((short){}.hash() == (short){}.hash());
+	assert((short[<100>]){}.hash() == (short[<100>]){}.hash());
+	assert((short[100]){}.hash() == (short[100]){}.hash());
+	assert((ushort){}.hash() == (ushort){}.hash());
+	assert((ushort[<100>]){}.hash() == (ushort[<100>]){}.hash());
+	assert((ushort[100]){}.hash() == (ushort[100]){}.hash());
+	assert((int){}.hash() == (int){}.hash());
+	assert((int[<100>]){}.hash() == (int[<100>]){}.hash());
+	assert((int[100]){}.hash() == (int[100]){}.hash());
+	assert((uint){}.hash() == (uint){}.hash());
+	assert((uint[<100>]){}.hash() == (uint[<100>]){}.hash());
+	assert((uint[100]){}.hash() == (uint[100]){}.hash());
+	assert((long){}.hash() == (long){}.hash());
+	assert((long[<20>]){}.hash() == (long[<20>]){}.hash());
+	assert((long[100]){}.hash() == (long[100]){}.hash());
+	assert((ulong){}.hash() == (ulong){}.hash());
+	assert((ulong[<20>]){}.hash() == (ulong[<20>]){}.hash());
+	assert((ulong[100]){}.hash() == (ulong[100]){}.hash());
+	assert((int128){}.hash() == (int128){}.hash());
+	assert((int128[<20>]){}.hash() == (int128[<20>]){}.hash());
+	assert((int128[100]){}.hash() == (int128[100]){}.hash());
+	assert((uint128){}.hash() == (uint128){}.hash());
+	assert((uint128[<20>]){}.hash() == (uint128[<20>]){}.hash());
+	assert((uint128[100]){}.hash() == (uint128[100]){}.hash());
+	assert((bool){}.hash() == (bool){}.hash());
+	assert((bool[<100>]){}.hash() == (bool[<100>]){}.hash());
+	assert((bool[100]){}.hash() == (bool[100]){}.hash());
+	assert(int::typeid.hash() == int::typeid.hash());
+}
+
+fn void test_hash_vector() @test @feat(SLOW_TESTS)
+{
+	test_hash_vector_internal{char}();
+	test_hash_vector_internal{ichar}();
+	test_hash_vector_internal{short}();
+	test_hash_vector_internal{ushort}();
+	test_hash_vector_internal{int}();
+	test_hash_vector_internal{uint}();
+	test_hash_vector_internal{long}();
+	test_hash_vector_internal{ulong}();
+	test_hash_vector_internal{int128}();
+	test_hash_vector_internal{uint128}();
+	test_hash_vector_internal{bool}();
+}
+
+fn void test_builtin_string_hashing() => @pool()
+{
+	var $x = "";
+	ulong l;
+	$for var $i = 0; $i < 65; ++$i:   // 65 is a good length to reliably test all branches w/o being excessive
+		l = string::tformat("%s%s", $x, $i).hash();
+		var $r = $$str_hash(@sprintf("%s%s", $x, $i));
+		assert((uint)l == (uint)$r, "Builtin $$str_hash mismatch against String.hash()");
+		$x = $x +++ "a";
+	$endfor
+}
+
+fn void test_ct_clz()
+{
+	assert(@clz((ulong)0) == ulong::size * 8);
+	assert(@clz((char)1) == (char::size * 8) - 1);
+	assert(@clz((uint)0x8000_0000) == 0);
+	assert(@clz((ushort)0x0100) == 7);
+	assert(@clz((long)-1) == 0);
+	assert(@clz((uint128)0x87) == 120);
+	assert(@clz((char)(0x44 - 0x40)) == 5);
+}
+
+fn void test_bitsizeof()
+{
+	assert(bitsizeof(uint128) == 128);
+	assert(bitsizeof(ulong) == 64);
+	assert(bitsizeof(int) == 32);
+	assert(bitsizeof(short) == 16);
+	assert(bitsizeof(char) == 8);
+	assert(bitsizeof(char[200]) == 1600);
+
+	// Checks that they may be converted
+	int x = bitsizeof(char);
+	int y = @bitsizeof(1);
+
+	assert(@bitsizeof((char)0x07) == 8);
+	assert(@bitsizeof(0x1000ul) == 64);
+	assert(@bitsizeof(0) == 32);
+	assert(@bitsizeof((char[*])"abcdefghi") == 72);
+}
+
+fn void test_ct_min_max()
+{
+	assert(@min(4, 5) == 4);
+	assert(@max(1.234, 1.2345) == 1.2345);
+	assert(@min(4, 5, 6, 7, 8.90, 3.14) == 3.14);
+	assert(@max(0, 0, 1.234, 1.2345, 0.2) == 1.2345);
+	assert(@max(127.9999999, 45 + 46, bitsizeof(uint128)) == 128);
+}
+
+const sz[] MY_OK_VALUES = { 128, 256, 384, 512 };
+fn void test_in()
+{
+	$assert @in(384, ...MY_OK_VALUES);
+	$assert !@in(123, ...MY_OK_VALUES);
+	$assert @in(384, 128, 256, 384, 512);
+	$assert @in("love", "joy", "cheer", "love", "friend");
+	$assert !@in("hate", "joy", "cheer", "love", "friend");
+}
+
+struct CmpInnerType
+{
+	int foo;
+	bool bar;
+	char[7] baz;
+	double* val;
+	char[] slice;
+}
+struct CmpOuterType
+{
+	float a_value;
+	CmpInnerType inner_values;
+	CmpInnerType* ref;
+}
+union SimpleUnion
+{
+	int a;
+	char b;
+}
+typedef InTypeHasEq = CmpInnerType;
+fn bool InTypeHasEq.eq(&self, InTypeHasEq other) @operator(==) => member_eq(*self, other);
+struct NestedMemberEq
+{
+	InTypeHasEq a_struct;
+	int biff;
+}
+fn void test_member_eq()
+{
+	char[] a_slice = "slice of characters";
+	double something = 8.60;
+	double different = -123.22;
+	CmpInnerType  a  = { .foo = 1, .bar = true, .baz = "abcdefg", .val = &something };
+	CmpInnerType* a1 = mem::talloc(CmpInnerType); *a1 = { ...a };
+
+	// Should always return `false` since `CmpInnerType` doesn't have an `==` implementation.
+	test::@check(!may_member_eq(CmpOuterType));
+
+	test::@check(member_eq(a, *a1));
+	a1.foo = 203498230;
+	test::@check(!member_eq(a, *a1));
+
+	SimpleUnion s_a = { .a = 1 };
+	SimpleUnion s_b = { .a = 1 };
+	test::@check(member_eq(s_a, s_b));
+	s_b.b = 'x';
+	test::@check(!member_eq(s_a, s_b));
+
+	// Now test a nested struct where even the struct members support `==`
+	NestedMemberEq x = { .a_struct = (InTypeHasEq)a, .biff = 5 };
+	NestedMemberEq y = x;
+	test::@check(member_eq(x, y));
+	y.a_struct.foo = 78;
+	test::@check(!member_eq(x, y));
+	y = x;
+	test::@check(member_eq(x, y));
+	y.biff = 7;
+	test::@check(!member_eq(x, y));
+}
+
+
+module std::core::builtins;
+
+fn void test_hash_vector_internal() <Type>
+{
+	int[] $lens = {1, 2, 4, 7, 8, 13, 16, 23, 32, 43, 64, 103};
+	$foreach $vec_len : $lens:
+	{
+		$if $vec_len * Type::size * 8  <= $$MAX_VECTOR_SIZE:
+		{
+			Type[<$vec_len>] vec1, vec2;
+			for (int val = 0; val < $vec_len; val++)
+			{
+				$if Type == bool:
+					vec1[val] = ((val & 0x3) == 0);
+				$else
+				{
+					Type tval = (Type)val;
+					vec1[val] = (tval | (tval << ((Type::size - 1) * 8)));
+				}
+				$endif
+			}
+			vec2 = vec1;
+			assert(vec1.hash() == vec2.hash());
+			for (int val = 0; val < $vec_len; val++)
+			{
+				$if Type == bool:
+					vec2[val] = !vec2[val];
+				$else
+					vec2[val] ^= ((Type)0b0010_0000 << ((Type::size - 1) * 8));
+				$endif
+
+				assert(vec1.hash() != vec2.hash());
+
+				$if Type == bool:
+					vec2[val] = !vec2[val];
+				$else
+					vec2[val] ^= ((Type)0b0010_0000 << ((Type::size - 1) * 8));
+				$endif
+			}
+		}
+		$endif
+	}
+	$endforeach
+}
+
+import std::io; /* for FILE_NOT_FOUND */
+
+fn bool? foo_fault(int in) @local => in < 5 ? true : SOME_FAULT~;
+
+fn void test_fault_short_name_rt() @test
+{
+	test::eq(foo_fault(4)!!, true);
+
+	bool? maybe = foo_fault(5);
+
+	if (catch e = maybe)
+	{
+		test::eq(e.description, "builtins::SOME_FAULT");
+		test::eq(e.short_name(), "SOME_FAULT");
+	}
+}
+
+fn void test_fault_short_name_comp() @test
+{
+	test::eq(SOME_FAULT.description, "builtins::SOME_FAULT");
+	test::eq(io::FILE_NOT_FOUND.description, "io::FILE_NOT_FOUND");
+
+	test::eq(SOME_FAULT.@short_name(), "SOME_FAULT");
+}
+
+

@@ -1,0 +1,19 @@
+// #target: macos-x64
+module test;
+
+struct Foo
+{
+	inline String str;
+}
+
+fn int main()
+{
+	(Foo){}.len;
+	return 0;
+}
+
+/* #expect: test.ll
+
+entry:
+  ret i32 0
+}

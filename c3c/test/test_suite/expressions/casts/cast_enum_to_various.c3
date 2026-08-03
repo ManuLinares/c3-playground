@@ -1,0 +1,46 @@
+struct Struct
+{
+    int x;
+}
+
+enum Enum : uint
+{
+    A, B
+}
+
+enum EnumB : char
+{
+    C, D
+}
+
+alias Func = fn void(Enum);
+
+fn void test1(Enum e)
+{
+    bool a = (bool)e;
+    char b = (char)e.ordinal;
+    uint c = (uint)e.ordinal;
+    float d = (float)e; // #error: float
+}
+
+fn void test12(Enum e)
+{
+    uint* f = (uint*)e;         // #error: 'uint*'
+}
+
+fn void test2(Enum e)
+{
+    Struct* g = (Struct*)(e);     // #error: 'Struct*'
+}
+
+fn void test3(Enum e)
+{
+    EnumB h = (EnumB)(e);         // #error: 'EnumB'
+}
+
+fn void test31(Enum e)
+{
+    Func i = (Func)(e);           // #error: 'Func'
+}
+
+

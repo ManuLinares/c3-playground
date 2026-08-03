@@ -1,0 +1,119 @@
+module timeformat_test @test;
+
+import std::time::datetime, std::collections::list, std::collections::triple;
+
+alias FormatTzTestSpec = Triple{TzDateTime, DateTimeFormat, String};
+alias FormatTestSpec = Triple{DateTime, DateTimeFormat, String};
+
+fn void test_with_tz()
+{
+	FormatTzTestSpec[*] tests = {
+		{ datetime::at(1970, JANUARY, 1, 0, 0, 0).with_gmt_offset(0), RFC1123, "Thu, 01 Jan 1970 00:00:00 GMT" },
+		{ datetime::at(1994, (Month)10, 6, 8, 49, 37).with_gmt_offset(0), RFC1123, "Sun, 06 Nov 1994 08:49:37 GMT" },
+		{ datetime::at(2020, JANUARY, 1, 0, 0, 0).with_gmt_offset(0), RFC1123, "Wed, 01 Jan 2020 00:00:00 GMT" },
+		{ datetime::at(2020, JANUARY, 1, 0, 0, 0).with_gmt_offset(-3600), RFC1123, "Wed, 01 Jan 2020 01:00:00 GMT" },
+		{ datetime::at(2020, JANUARY, 1, 0, 0, 0).with_gmt_offset(-3600), RFC1123Z, "Wed, 01 Jan 2020 00:00:00 -0100" },
+		{ datetime::at(2020, JANUARY, 1, 0, 0, 0).with_gmt_offset(0), RFC1123Z, "Wed, 01 Jan 2020 00:00:00 -0000" },
+		{ datetime::at(2020, JANUARY, 1, 0, 0, 0).with_gmt_offset(0), RFC3339, "2020-01-01T00:00:00Z" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5, 999998).with_gmt_offset(0), RFC3339MS, "2006-01-02T15:04:05.999998Z" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5, 999998).with_gmt_offset(25200), RFC3339Z, "2006-01-02T15:04:05+07:00" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5, 999998).with_gmt_offset(25200), RFC3339ZMS, "2006-01-02T15:04:05.999998+07:00" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 05).with_gmt_offset(0), RFC822, "02 Jan 06 15:04 GMT" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 05).with_gmt_offset(0), RFC822Z, "02 Jan 06 15:04 -0000" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 05).with_gmt_offset(0), RFC850, "Monday, 02-Jan-06 15:04:05 GMT" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 05).with_gmt_offset(0), UNIXDATE, "Mon Jan  2 15:04:05 GMT 2006" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 05).to_gmt_offset(0), RUBYDATE, "Mon Jan  2 15:04:05 -0000 2006" },
+	};
+
+	foreach (test : tests)
+	{
+		String candidate = test.first.format(mem, test.second);
+		defer free(candidate);
+		assert(candidate == test.third, "got: '%s', expected: '%s'", candidate, test.third);
+	}
+}
+
+fn void test_negative_half_hour_tz()
+{
+	FormatTzTestSpec[*] tests = {
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5).with_gmt_offset(-3 * 3600 - 30 * 60),
+			RFC3339Z, "2006-01-02T15:04:05-03:30" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5).with_gmt_offset(-9 * 3600 - 30 * 60),
+			RFC3339Z, "2006-01-02T15:04:05-09:30" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5).with_gmt_offset(5 * 3600 + 30 * 60),
+			RFC3339Z, "2006-01-02T15:04:05+05:30" },
+		{ datetime::at(2020, JANUARY, 1, 0, 0, 0).with_gmt_offset(-3 * 3600 - 30 * 60),
+			RFC1123Z, "Wed, 01 Jan 2020 00:00:00 -0330" },
+		{ datetime::at(2020, JANUARY, 1, 0, 0, 0).with_gmt_offset(-9 * 3600 - 30 * 60),
+			RFC822Z,  "01 Jan 20 00:00 -0930" },
+		{ datetime::at(2020, JANUARY, 1, 0, 0, 0).with_gmt_offset(5 * 3600 + 30 * 60),
+			RFC1123Z, "Wed, 01 Jan 2020 00:00:00 +0530" },
+	};
+
+	foreach (test : tests)
+	{
+		String candidate = test.first.format(mem, test.second);
+		defer free(candidate);
+		assert(candidate == test.third, "got: '%s', expected: '%s'", candidate, test.third);
+	}
+}
+
+fn void test_without_tz()
+{
+	FormatTestSpec[*] tests = {
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 05), ANSIC, "Mon Jan  2 15:04:05 2006" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 05), DATETIME, "2006-01-02 15:04:05" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 05), DATEONLY, "2006-01-02" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 05), TIMEONLY, "15:04:05" },
+	};
+
+	foreach (test : tests)
+	{
+		String candidate = test.first.format(mem, test.second);
+		defer free(candidate);
+		assert(candidate == test.third, "got: '%s', expected: '%s'", candidate, test.third);
+	}
+}
+
+// The microseconds field must be printed as positional 6-digit fractional
+// seconds (%06d). A usec value with leading zeros (any sub-100ms fraction)
+// must keep those zeros, otherwise e.g. 5000us (0.005s) renders as ".5000"
+// which reads as 0.5s.
+fn void test_fractional_seconds()
+{
+	FormatTzTestSpec[*] tests = {
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5, 0).with_gmt_offset(0),      RFC3339MS,  "2006-01-02T15:04:05.000000Z" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5, 1).with_gmt_offset(0),      RFC3339MS,  "2006-01-02T15:04:05.000001Z" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5, 123).with_gmt_offset(0),    RFC3339MS,  "2006-01-02T15:04:05.000123Z" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5, 5000).with_gmt_offset(0),   RFC3339MS,  "2006-01-02T15:04:05.005000Z" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5, 50000).with_gmt_offset(0),  RFC3339MS,  "2006-01-02T15:04:05.050000Z" },
+		// ZMS variant: leading-zero usec together with a timezone offset.
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5, 5000).with_gmt_offset(25200), RFC3339ZMS, "2006-01-02T15:04:05.005000+07:00" },
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5, 42).with_gmt_offset(25200),   RFC3339ZMS, "2006-01-02T15:04:05.000042+07:00" },
+	};
+
+	foreach (test : tests)
+	{
+		String candidate = test.first.format(mem, test.second);
+		defer free(candidate);
+		assert(candidate == test.third, "got: '%s', expected: '%s'", candidate, test.third);
+	}
+}
+
+// A negative offset smaller than one hour has an hour part of 0; the sign
+// must still come through (the sign should be derived from the whole offset,
+// not just the hour part).
+fn void test_negative_sub_hour_tz()
+{
+	FormatTzTestSpec[*] tests = {
+		{ datetime::at(2006, JANUARY, 2, 15, 4, 5).with_gmt_offset(-30 * 60),   RFC3339Z, "2006-01-02T15:04:05-00:30" },
+		{ datetime::at(2020, JANUARY, 1, 0, 0, 0).with_gmt_offset(-30 * 60),    RFC1123Z, "Wed, 01 Jan 2020 00:00:00 -0030" },
+	};
+
+	foreach (test : tests)
+	{
+		String candidate = test.first.format(mem, test.second);
+		defer free(candidate);
+		assert(candidate == test.third, "got: '%s', expected: '%s'", candidate, test.third);
+	}
+}

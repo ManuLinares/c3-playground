@@ -1,0 +1,8 @@
+alias Foo = fn void(int x);
+
+typedef Bar = Foo;
+
+fn void main()
+{
+    Bar t = fn (x) { };
+}

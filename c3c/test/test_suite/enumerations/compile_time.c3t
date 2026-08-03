@@ -1,0 +1,17 @@
+// #target: macos-x64
+enum MyEnum : short
+{
+    HELO,
+    WORLD,
+    BYE
+}
+
+int myenum_elements = MyEnum::values.len;
+int myenum_alignof = MyEnum::alignment;
+int myenum_sizeof = MyEnum::size;
+
+/* #expect: compile_time.ll
+
+@compile_time.myenum_elements = local_unnamed_addr global i32 3, align 4
+@compile_time.myenum_alignof = local_unnamed_addr global i32 2, align 4
+@compile_time.myenum_sizeof = local_unnamed_addr global i32 2, align 4

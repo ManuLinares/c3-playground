@@ -1,0 +1,239 @@
+module std::core::machoruntime @feat(DARWIN) @private;
+
+struct SegmentCommand64
+{
+	uint cmd;
+	uint cmdsize;
+	char[16] segname;
+	ulong vmaddr;
+	ulong vmsize;
+	ulong fileoff;
+	ulong filesize;
+	uint maxprot;
+	uint initprot;
+	uint nsects;
+	uint flags;
+}
+
+struct LoadCommand
+{
+	uint cmd;
+	uint cmdsize;
+}
+
+struct Section64
+{
+	char[16] sectname;
+	char[16] segname;
+	ulong addr;
+	ulong size;
+	uint offset;
+	uint align;
+	uint reloff;
+	uint nreloc;
+	uint flags;
+	uint reserved1;
+	uint reserved2;
+	uint reserved3;
+}
+
+struct MachHeader
+{
+	uint magic;
+	uint cputype;
+	uint cpusubtype;
+	uint filetype;
+	uint ncmds;
+	uint sizeofcmds;
+	uint flags;
+}
+
+struct MachHeader64
+{
+	inline MachHeader header;
+	uint reserved;
+}
+
+const LC_SEGMENT_64 = 0x19;
+
+
+fn bool name_cmp(char* a, char[16]* b)
+{
+	for (sz i = 0; i < 16; i++)
+	{
+		if (a[i] != (*b)[i]) return false;
+		if (a[i] == '\0') return true;
+	}
+	return false;
+}
+
+fn SegmentCommand64*? find_segment(MachHeader* header, char* segname)
+{
+	LoadCommand* command = (void*)header + MachHeader64::size;
+	for (uint i = 0; i < header.ncmds; i++)
+	{
+		if (command.cmd == LC_SEGMENT_64)
+		{
+			SegmentCommand64* segment = (SegmentCommand64*)command;
+			if (name_cmp(segname, &segment.segname)) return segment;
+		}
+		command = (void*)command + command.cmdsize;
+	}
+	return NOT_FOUND~;
+}
+fn Section64*? find_section(SegmentCommand64* command, char* sectname)
+{
+	Section64* section = (void*)command + SegmentCommand64::size;
+	for (uint i = 0; i < command.nsects; i++)
+	{
+		if (name_cmp(sectname, &section.sectname)) return section;
+		section++;
+	}
+	return NOT_FOUND~;
+}
+
+macro find_segment_section_body(MachHeader* header, sz vmaddr_slide, char* segname, char* sectname, $Type)
+{
+
+	Section64*? section = find_section(find_segment(header, segname), sectname);
+	if (catch section)
+	{
+		return ($Type[]){};
+	}
+	$Type* ptr = (void*)(uptr)(section.addr + (ulong)vmaddr_slide);
+	return ptr[:section.size / $Type::size];
+}
+
+extern char __dso_handle;
+
+fn sz image_slide(MachHeader* header)
+{
+	SegmentCommand64*? text = find_segment(header, "__TEXT");
+	if (catch text) return 0;
+	return (sz)((uptr)header - (uptr)text.vmaddr);
+}
+
+
+struct DlInfo
+{
+	char* dli_fname;
+	void* dli_fbase;
+	char* dli_sname;
+	void* dli_saddr;
+}
+
+extern fn void printf(char*, ...);
+extern fn int dladdr(MachHeader* mh, DlInfo* dlinfo);
+extern fn void* realloc(void* ptr, sz size);
+extern fn void* malloc(sz size);
+extern fn void free(void* ptr);
+
+alias CallbackFn = fn void();
+struct Callback
+{
+	uint priority;
+	CallbackFn xtor;
+	Callback* next;
+}
+struct DynamicMethod
+{
+	void* fn_ptr;
+	char* sel;
+	union
+	{
+		DynamicMethod* next;
+		TypeId* type;
+	}
+}
+
+enum StartupState
+{
+	NOT_STARTED,
+	INIT,
+	RUN_CTORS,
+	READ_DYLIB,
+	RUN_DTORS,
+	SHUTDOWN
+}
+
+StartupState runtime_state = NOT_STARTED;
+
+Callback* ctor_first;
+Callback* dtor_first;
+
+fn void runtime_startup() @public @export("__c3_runtime_startup")
+{
+	if (runtime_state != NOT_STARTED) return;
+	runtime_state = INIT;
+	MachHeader* self = (MachHeader*)&__dso_handle;
+	dl_reg_callback(self, image_slide(self));
+	assert(runtime_state == INIT);
+	runtime_state = RUN_CTORS;
+	Callback* ctor = ctor_first;
+	while (ctor)
+	{
+		ctor.xtor();
+		ctor = ctor.next;
+	}
+	assert(runtime_state == RUN_CTORS);
+	runtime_state = READ_DYLIB;
+	ctor_first = null;
+}
+
+fn void runtime_finalize() @public @export("__c3_runtime_finalize")
+{
+	if (runtime_state != READ_DYLIB) return;
+	runtime_state = RUN_DTORS;
+	Callback* dtor = dtor_first;
+	while (dtor)
+	{
+		dtor.xtor();
+		dtor = dtor.next;
+	}
+	assert(runtime_state == RUN_DTORS);
+	runtime_state = SHUTDOWN;
+}
+
+fn void append_xxlizer(Callback** ref, Callback* cb)
+{
+	while (Callback* current = *ref, current)
+	{
+		if (current.priority > cb.priority)
+		{
+			cb.next = current;
+			break;
+		}
+		ref = &current.next;
+	}
+	*ref = cb;
+}
+
+struct TypeId
+{
+	char type;
+	TypeId* parentof;
+	DynamicMethod* dtable;
+	sz sizeof;
+	TypeId* inner;
+	sz len;
+	typeid[*] additional;
+}
+
+fn void dl_reg_callback(MachHeader* mh, sz vmaddr_slide)
+{
+	assert(runtime_state == INIT, "State was %s", runtime_state);
+	foreach (&dm : find_segment_section_body(mh, vmaddr_slide, "__DATA", "__c3_dynamic", DynamicMethod))
+	{
+		TypeId* type = dm.type;
+		dm.next = type.dtable;
+		type.dtable = dm;
+	}
+	foreach (&cb : find_segment_section_body(mh, vmaddr_slide, "__DATA", "__c3dtor", Callback))
+	{
+		append_xxlizer(&dtor_first, cb);
+	}
+	foreach (&cb : find_segment_section_body(mh, vmaddr_slide, "__DATA", "__c3ctor", Callback))
+	{
+		append_xxlizer(&ctor_first, cb);
+	}
+}

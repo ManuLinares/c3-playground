@@ -1,0 +1,414 @@
+
+module std::core::types;
+import libc;
+
+
+faultdef VALUE_OUT_OF_RANGE, VALUE_OUT_OF_UNSIGNED_RANGE;
+
+<*
+ @require $Type::kind.is_int() : "Type was not an integer"
+ @require (bool)v.type : "The value was empty"
+ @require v.type.kind == ENUM : "Value was not an enum"
+*>
+macro any_to_enum_ordinal(any v, $Type)
+{
+	return any_to_int(v.as_inner(), $Type);
+}
+
+<*
+ @require $Type::kind.is_int() : "Type was not an integer"
+ @require (bool)v.type : "The value was empty"
+ @require v.type.kind.is_int() : "Value was not an integer"
+*>
+macro any_to_int(any v, $Type)
+{
+	typeid any_type = v.type;
+	TypeKind kind = any_type.kind;
+	bool is_mixed_signed = $Type::kind != any_type.kind;
+	$Type max = $Type::max;
+	$Type min = $Type::min;
+	switch (any_type)
+	{
+		case ichar:
+			ichar c = *(ichar*)v.ptr;
+			if (is_mixed_signed && c < 0) return VALUE_OUT_OF_UNSIGNED_RANGE~;
+			return ($Type)c;
+		case short:
+			short s = *(short*)v.ptr;
+			if (is_mixed_signed && s < 0) return VALUE_OUT_OF_UNSIGNED_RANGE~;
+			if ($Type::size <= 2 &&& ((int)s > (int)max || (int)s < (int)min)) return VALUE_OUT_OF_RANGE~;
+			return ($Type)s;
+		case int:
+			int i = *(int*)v.ptr;
+			if (is_mixed_signed && i < 0) return VALUE_OUT_OF_UNSIGNED_RANGE~;
+			if ($Type::size <= 4 &&& ((long)i > (long)max || (long)i < (long)min)) return VALUE_OUT_OF_RANGE~;
+			return ($Type)i;
+		case long:
+			long l = *(long*)v.ptr;
+			if (is_mixed_signed && l < 0) return VALUE_OUT_OF_UNSIGNED_RANGE~;
+			if ($Type::size <= 8 &&& ((int128)l > (int128)max || (int128)l < (int128)min)) return VALUE_OUT_OF_RANGE~;
+			return ($Type)l;
+		case int128:
+			int128 i = *(int128*)v.ptr;
+			if (is_mixed_signed && i < 0) return VALUE_OUT_OF_UNSIGNED_RANGE~;
+			$if $Type != uint128:
+				if ((int128)i > (int128)max || (int128)i < (int128)min) return VALUE_OUT_OF_RANGE~;
+			$endif
+			return ($Type)i;
+		case char:
+			char c = *(char*)v.ptr;
+			if ($Type::size == 1 && (int)c > (int)max) return VALUE_OUT_OF_RANGE~;
+			return ($Type)c;
+		case ushort:
+			ushort s = *(ushort*)v.ptr;
+			if ($Type::size <= 2 && (int)s > (int)max) return VALUE_OUT_OF_RANGE~;
+			return ($Type)s;
+		case uint:
+			uint i = *(uint*)v.ptr;
+			if ($Type::size <= 4 && (long)i > (long)max) return VALUE_OUT_OF_RANGE~;
+			return ($Type)i;
+		case ulong:
+			ulong l = *(ulong*)v.ptr;
+			if ($Type::size <= 8 && (int128)l > (int128)max) return VALUE_OUT_OF_RANGE~;
+			return ($Type)l;
+		case uint128:
+			uint128 i = *(uint128*)v.ptr;
+			if (i > (uint128)max) return VALUE_OUT_OF_RANGE~;
+			return ($Type)i;
+		default:
+			unreachable();
+	}
+}
+
+fn bool typeid.is_subtype_of(self, typeid other)
+{
+	while (self != void)
+	{
+		if (self == other) return true;
+		self = self.parent;
+	}
+	return false;
+}
+
+macro bool is_subtype_of($Type, $OtherType)
+{
+	$switch $Type:
+		$case $OtherType: return true;
+		$default: return false;
+	$endswitch
+}
+macro bool is_numerical($Type)
+{
+	$switch $Type::kind:
+		$case TYPEDEF:
+		$case CONSTDEF:
+			return is_numerical($Type::inner);
+		$case SIGNED_INT:
+		$case UNSIGNED_INT:
+		$case FLOAT:
+		$case VECTOR:
+			return true;
+		$default:
+			return false;
+	$endswitch
+}
+
+fn bool TypeKind.is_int(kind) @inline
+{
+	return kind == SIGNED_INT || kind == UNSIGNED_INT;
+}
+
+macro bool TypeKind.@is_int($kind) @const
+{
+	return $kind == SIGNED_INT ||| $kind == UNSIGNED_INT;
+}
+
+macro bool is_slice_convertible($Type)
+{
+	$switch $Type::kind:
+		$case SLICE:
+			return true;
+		$case POINTER:
+			return $Type::inner.kind == TypeKind.ARRAY;
+		$default:
+			return false;
+	$endswitch
+}
+
+macro bool is_bool($Type) @const => $Type::kind == TypeKind.BOOL;
+macro bool is_int($Type) @const  => $Type::kind == TypeKind.SIGNED_INT || $Type::kind == TypeKind.UNSIGNED_INT;
+
+<*
+ @require is_numerical($Type) : "Expected a numerical type"
+*>
+macro bool is_signed($Type) @const
+{
+	$switch inner_kind($Type):
+		$case SIGNED_INT:
+		$case FLOAT:
+			return true;
+		$case VECTOR:
+			return is_signed($Type::inner);
+		$default:
+			return false;
+	$endswitch
+}
+
+<*
+ @require is_numerical($Type) : "Expected a numerical type"
+*>
+macro bool is_unsigned($Type) @const
+{
+	$switch inner_kind($Type):
+		$case UNSIGNED_INT:
+			return true;
+		$case VECTOR:
+			return is_unsigned($Type::inner);
+		$default:
+			return false;
+	$endswitch
+}
+
+macro typeid flat_type($Type) @const
+{
+	$if $Type::kind == TYPEDEF || $Type::kind == CONSTDEF:
+		return flat_type($Type::inner);
+	$else
+		return $Type;
+	$endif
+}
+
+macro TypeKind flat_kind($Type) @const
+{
+	$if $Type::kind == TYPEDEF || $Type::kind == CONSTDEF:
+		return flat_type($Type::inner);
+	$else
+		return $Type::kind;
+	$endif
+}
+
+macro bool is_indexable($Type) @const
+{
+	return $defined(($Type){}[0]);
+}
+
+macro bool is_ref_indexable($Type) @const
+{
+	return $defined(&($Type){}[0]);
+}
+
+macro bool is_flat_intlike($Type) @const
+{
+	$switch $Type::kind:
+		$case SIGNED_INT:
+		$case UNSIGNED_INT:
+			return true;
+		$case VECTOR:
+		$case TYPEDEF:
+		$case CONSTDEF:
+			return is_flat_intlike($Type::inner);
+		$default:
+			return false;
+	$endswitch
+}
+
+macro bool is_intlike($Type) @const
+{
+	$switch $Type::kind:
+		$case SIGNED_INT:
+		$case UNSIGNED_INT:
+			return true;
+		$case VECTOR:
+			return $Type::inner.kind == TypeKind.SIGNED_INT || $Type::inner.kind == TypeKind.UNSIGNED_INT;
+		$default:
+			return false;
+	$endswitch
+}
+
+macro bool is_underlying_int($Type) @const
+{
+	$switch $Type::kind:
+		$case SIGNED_INT:
+		$case UNSIGNED_INT:
+			return true;
+		$case TYPEDEF:
+			return is_underlying_int($Type::inner);
+		$default:
+			return false;
+	$endswitch
+}
+
+macro bool is_float($Type) @const  => $Type::kind == TypeKind.FLOAT;
+
+macro bool is_floatlike($Type) @const
+{
+	$switch $Type::kind:
+		$case FLOAT:
+			return true;
+		$case VECTOR:
+			return $Type::inner.kind == TypeKind.FLOAT;
+		$default:
+			return false;
+	$endswitch
+}
+
+macro bool is_vector($Type) @const
+{
+	return $Type::kind == TypeKind.VECTOR;
+}
+
+macro typeid inner_type($Type) @const
+{
+	$if $Type::kind == TYPEDEF || $Type::kind == CONSTDEF:
+		return inner_type($Type::inner);
+	$else
+		return $Type;
+	$endif
+}
+
+macro TypeKind inner_kind($Type) @const
+{
+	return inner_type($Type).kind;
+}
+
+macro bool is_same($TypeA, $TypeB) @const
+{
+	return $TypeA == $TypeB;
+}
+
+macro bool @has_same(#a, #b, ...) @const
+{
+	var $type_a = @typeid(#a);
+	$if $type_a != @typeid(#b):
+		return false;
+	$endif
+	$for var $i = 0; $i < $vaarg.len; $i++:
+		$if @typeid($vaarg[$i]) != $type_a:
+			return false;
+		$endif
+	$endfor
+	return true;
+}
+
+macro bool may_load_atomic($Type) @const
+{
+	$switch $Type::kind:
+	$case BOOL:
+	$case SIGNED_INT:
+	$case UNSIGNED_INT:
+	$case POINTER:
+	$case FLOAT:
+		return true;
+	$case TYPEDEF:
+	$case ENUM:
+		return may_load_atomic($Type::inner);
+	$default:
+		return false;
+	$endswitch
+}
+
+macro lower_to_atomic_compatible_type($Type) @const
+{
+	$switch $Type::kind:
+		$case BOOL:
+		$case SIGNED_INT:
+		$case UNSIGNED_INT:
+			return $Type;
+		$case TYPEDEF:
+		$case CONSTDEF:
+			return lower_to_atomic_compatible_type($Type::inner);
+		$case FLOAT:
+			$switch $Type:
+				$case float16:
+					return ushort;
+				$case float: 
+					return uint;
+				$case double:
+					return ulong;
+				$case float128:
+					return uint128;
+				$default: 
+					return void;
+			$endswitch
+		$default:
+			return void;
+  $endswitch
+}
+
+macro bool is_promotable_to_floatlike($Type) @const  => types::is_floatlike($Type) ||| types::is_int($Type);
+macro bool is_promotable_to_float($Type) @const  => types::is_float($Type) ||| types::is_int($Type);
+
+macro bool is_same_vector_type($Type1, $Type2) @const
+{
+	$if $Type1::kind != TypeKind.VECTOR:
+		return $Type2::kind != TypeKind.VECTOR;
+	$else
+		return $Type1::inner == $Type2::inner && $Type1::len == $Type2::len;
+	$endif
+}
+
+macro bool has_equals($Type) @const => $defined(($Type){} == ($Type){});
+
+macro bool is_equatable_type($Type) @const
+{
+	$if $defined($Type.less) ||| $defined($Type.compare_to) ||| $defined($Type.equals):
+		return true;
+	$else
+		return $Type::has_equals;
+	$endif
+}
+
+<*
+ Checks if a type implements the copy protocol.
+*>
+macro bool implements_copy($Type) @const
+{
+	return $defined($Type.copy) &&& $defined($Type.free);
+}
+
+macro bool @equatable_value(#value) @const
+{
+	return is_equatable_type($Typeof(#value));
+}
+
+macro bool @comparable_value(#value) @const
+{
+	$if $defined(#value.less) ||| $defined(#value.compare_to):
+		return true;
+	$else
+		return $reflect(#value).is_ordered;
+	$endif
+}
+
+enum TypeKind : char
+{
+	VOID,
+	BOOL,
+	SIGNED_INT,
+	UNSIGNED_INT,
+	FLOAT,
+	TYPEID,
+	FAULT,
+	ANY,
+	ENUM,
+	CONSTDEF,
+	STRUCT,
+	UNION,
+	BITSTRUCT,
+	FUNC,
+	OPTIONAL,
+	ARRAY,
+	SLICE,
+	VECTOR,
+	TYPEDEF,
+	POINTER,
+	INTERFACE,
+	UNTYPEDLIST,
+}
+
+struct TypeEnum
+{
+	TypeKind type;
+	sz elements;
+}
+

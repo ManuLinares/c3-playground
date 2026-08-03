@@ -1,0 +1,300 @@
+module ordered_set_test @test;
+import std::collections::set;
+
+alias TestOrderedSet = OrderedSet{String};
+
+fn void ordered_set_basic()
+{
+	TestOrderedSet set;
+	assert(!set.is_initialized());
+	set.tinit();
+	assert(set.is_initialized());
+	assert(set.is_empty());
+	assert(set.len() == 0);
+
+	assert(set.add("a"));
+	assert(!set.is_empty());
+	assert(set.len() == 1);
+	set.remove("a");
+	assert(set.is_empty());
+
+	String[] values = { "key1", "key2", "key3" };
+	foreach (value : values)
+	{
+		assert(set.add(value));
+	}
+	assert(set.len() == values.len);
+	foreach (value : values)
+	{
+		assert(set.contains(value));
+	}
+}
+
+fn void ordered_set_insertion_order()
+{
+	TestOrderedSet set;
+	set.tinit();
+	
+	String[] values = { "first", "second", "third", "fourth" };
+	foreach (value : values)
+	{
+		set.add(value);
+	}
+	
+	// Test iteration follows insertion order
+	sz index = 0;
+	set.@each(; String value)
+	{
+		assert(value == values[index]);
+		index++;
+	};
+	
+	// Test that removing and re-inserting changes order
+	set.remove("second");
+	set.add("second");
+	
+	String[] new_order = { "first", "third", "fourth", "second" };
+	index = 0;
+	set.@each(; String value)
+	{
+		assert(value == new_order[index]);
+		index++;
+	};
+}
+
+fn void ordered_set_init_with_values()
+{
+	TestOrderedSet set;
+	set.tinit_with_values("a", "b", "c");
+	
+	assert(set.len() == 3);
+	assert(set.contains("a"));
+	assert(set.contains("b"));
+	assert(set.contains("c"));
+	
+	// Verify order
+	String[] expected_order = { "a", "b", "c" };
+	sz index = 0;
+	set.@each(; String value)
+	{
+		assert(value == expected_order[index]);
+		index++;
+	};
+}
+
+fn void ordered_set_remove()
+{
+	TestOrderedSet set;
+	assert(!@ok(set.remove("A")));
+	set.tinit();
+	assert(!@ok(set.remove("A")));
+	set.add("A");
+	assert(@ok(set.remove("A")));
+	
+	set.add("a");
+	set.add("b");
+	set.add("c");
+	set.remove("b");
+	
+	String[] expected_order = { "a", "c" };
+	sz index = 0;
+	set.@each(; String value)
+	{
+		assert(value == expected_order[index]);
+		index++;
+	};
+}
+
+fn void ordered_set_copy()
+{
+	TestOrderedSet original;
+	original.tinit();
+
+	original.add("aa");
+	original.add("b");
+	original.add("bb");
+
+	TestOrderedSet copy;
+	copy.tinit_from_set(&original);
+
+	assert(copy.len() == original.len());
+	
+	String[] expected_order = { "aa", "b", "bb" };
+	sz index = 0;
+	copy.@each(; String value)
+	{
+		assert(value == expected_order[index]);
+		index++;
+	};
+}
+
+fn void ordered_set_iterators()
+{
+	TestOrderedSet set;
+	set.tinit_with_values("a", "b", "c");
+	
+	// Test entry iterator
+	sz count = 0;
+	OrderedSetIterator{String} iter = set.iter();
+	while (iter.next())
+	{
+		count++;
+		assert(iter.get()!!.len > 0);
+	}
+	assert(count == 3);
+	
+	// Test direct each macro
+	count = 0;
+	set.@each(; String value) {
+		count++;
+		assert(value.len > 0);
+	};
+	assert(count == 3);
+}
+
+fn void ordered_set_clear()
+{
+	TestOrderedSet set;
+	set.tinit_with_values("a", "b", "c");
+	
+	assert(set.len() == 3);
+	set.clear();
+	assert(set.len() == 0);
+	assert(set.is_empty());
+	
+	// Should be able to reuse after clear
+	set.add("x");
+	assert(set.len() == 1);
+	assert(set.contains("x"));
+}
+
+fn void ordered_set_operations()
+{
+	TestOrderedSet set1;
+	set1.tinit_with_values("a", "b", "c");
+	
+	TestOrderedSet set2;
+	set2.tinit_with_values("b", "c", "d");
+	
+	// Test union
+	TestOrderedSet union_set = set1.tset_union(&set2);
+	defer union_set.free();
+	assert(union_set.contains("a"));
+	assert(union_set.contains("b"));
+	assert(union_set.contains("c"));
+	assert(union_set.contains("d"));
+	assert(union_set.len() == 4);
+	
+	// Verify union preserves order (elements from first set first)
+	String[] expected_union_order = { "a", "b", "c", "d" };
+	sz index = 0;
+	union_set.@each(; String value) {
+		assert(value == expected_union_order[index]);
+		index++;
+	};
+	
+	// Test intersection
+	TestOrderedSet intersect_set = set1.tintersection(&set2);
+	defer intersect_set.free();
+	assert(intersect_set.contains("b"));
+	assert(intersect_set.contains("c"));
+	assert(!intersect_set.contains("a"));
+	assert(!intersect_set.contains("d"));
+	assert(intersect_set.len() == 2);
+	
+	// Test difference
+	TestOrderedSet diff_set = set1.tdifference(&set2);
+	defer diff_set.free();
+	assert(diff_set.contains("a"));
+	assert(!diff_set.contains("b"));
+	assert(!diff_set.contains("c"));
+	assert(!diff_set.contains("d"));
+	assert(diff_set.len() == 1);
+	
+	// Test subset
+	TestOrderedSet subset;
+	subset.tinit_with_values("b", "c");
+	assert(subset.is_subset(&set1));
+	assert(!set1.is_subset(&subset));
+}
+
+alias IntLinkedSet = LinkedHashSet{int};
+
+fn void ordered_set_edge_cases()
+{
+	// Test empty set
+	IntLinkedSet empty;
+	empty.tinit();
+	defer empty.free();
+	
+	assert(empty.is_empty());
+	assert(!empty.contains(0));
+	empty.remove(0); // Shouldn't crash
+	
+	// Test large set
+	IntLinkedSet large;
+	large.tinit();
+	defer large.free();
+	
+	// Insert in reverse order to test ordering
+	for (int i = 1000; i > 0; i--) {
+		large.add(i);
+	}
+	assert(large.len() == 1000);
+	
+	// Verify order is maintained
+	int expected = 1000;
+	large.@each(; int value) {
+		assert(value == expected);
+		expected--;
+	};
+	
+	// Test clear
+	large.clear();
+	assert(large.is_empty());
+	for (int i = 1; i <= 1000; i++) {
+		assert(!large.contains(i));
+	}
+}
+
+fn void ordered_set_string_values()
+{
+	TestOrderedSet set;
+	set.tinit();
+	defer set.free();
+	
+	assert(set.add("hello"));
+	assert(set.add("world"));
+	assert(!set.add("hello"));
+	
+	assert(set.contains("hello"));
+	assert(set.contains("world"));
+	assert(!set.contains("foo"));
+	
+	// Test order
+	String[] expected_order = { "hello", "world" };
+	sz index = 0;
+	set.@each(; String value) {
+		assert(value == expected_order[index]);
+		index++;
+	};
+	
+	set.remove("hello");
+	assert(!set.contains("hello"));
+	assert(set.len() == 1);
+	
+	// Test order after removal
+	assert(set.contains("world"));
+	set.@each(; String value) {
+		assert(value == "world");
+	};
+}
+
+fn void ordered_set_is_initialized()
+{
+	TestOrderedSet test;
+	assert(!test.is_initialized());
+	test.tinit();
+	assert(test.is_initialized());
+	test.free();
+}

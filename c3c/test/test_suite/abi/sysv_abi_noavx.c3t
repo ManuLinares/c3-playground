@@ -1,0 +1,43 @@
+// #target: linux-x64
+// #opt: --x86vec=none
+module foo;
+
+struct StringRef
+{
+	char* str;
+	usz size;
+}
+
+char gc;
+extern fn void take_stringref(StringRef s);
+fn void callit()
+{
+	StringRef s = { "asdf" , 4};
+	take_stringref(s);
+}
+
+typedef Mv256 = float[<8>] @simd;
+typedef Mv512 = float[<16>] @simd;
+extern fn Mv256 get_m256();
+extern fn void take_m256(Mv256 x);
+extern fn Mv512 get_m512();
+extern fn void take_m512(Mv512 x);
+
+fn void use_vectors()
+{
+  Mv256 v1 = get_m256();
+  take_m256(v1);
+  Mv512 v2 = get_m512();
+  take_m512(v2);
+}
+
+/* #expect: foo.ll
+
+declare void @take_stringref(ptr, i64) #0
+  call void @take_stringref(ptr %lo, i64 %hi)
+
+define void @foo.use_vectors() #0 {
+  %0 = call <8 x float> @get_m256()
+  call void @take_m256(ptr byval(<8 x float>) align 32 %v1)
+  %1 = call <16 x float> @get_m512()
+  call void @take_m512(ptr byval(<16 x float>) align 64 %v2)

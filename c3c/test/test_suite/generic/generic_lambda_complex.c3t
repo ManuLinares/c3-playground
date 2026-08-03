@@ -1,0 +1,235 @@
+// #target: macos-x64
+
+module abc_faults;
+
+faultdef UNTERMINATED_TAG, EMPTY_TAG, MISSING_TAG, UNSUPPORTED_TAG;
+
+<* @require Type::kind == STRUCT *>
+module abc <Type>;
+import std::io, abc_faults, std::collections::list;
+
+alias TextTagList = List{TextTag};
+
+
+enum TextTagKind: char
+{
+	STRING,
+	TEMPLATE,
+}
+
+struct TextTemplate
+{
+	Allocator allocator;
+	String template;
+	TextTag[] tags;
+	Type data;
+}
+
+struct TextTag
+{
+	sz start;
+	sz end;
+	TextTagKind kind;
+	union {
+		String* data;
+		TextTemplate* template;
+	}
+}
+
+<*
+ @require self.tags.len == 0 : "template already initialized"
+ @require tag_start != tag_end
+ *>
+fn void? TextTemplate.init(&self, String template, String tag_start = "{{", String tag_end = "}}", Allocator using = alloc::heap())
+{
+	TextTagList tags;
+	String tmpl = template;
+	uptr data = (uptr)&self.data;
+	while (true)
+	{
+		sz? start = tmpl.index_of(tag_start);
+		if (catch start) break;
+		tmpl = tmpl[start + tag_start.len..];
+
+		sz? end = tmpl.index_of(tag_end);
+		if (catch end) return abc_faults::UNTERMINATED_TAG~;
+		String name = tmpl[:end].trim();
+		if (name == "") return abc_faults::EMPTY_TAG~;
+		// Check that the tag exists in the data struct.
+
+		TextTag tag @noinit;
+		do OUTER:
+		{
+			$foreach $m : Type::members:
+				if (name == $m.name)
+				{
+					$switch $m.type:
+						$case String::typeid:
+							tag = {
+								.kind = STRING,
+								.data = (String*)(data + (usz)$m.offset),
+							};
+							break OUTER;
+						$default:
+							$if $defined(self.data.$m.as_stream):
+								tag = {
+									.kind = TEMPLATE,
+									.template = self.data.$eval($m.name).as_stream(),
+								};
+								break;
+							$endif
+					$endswitch
+					//return UNSUPPORTED_TAG~;
+				}
+			$endforeach
+			return abc_faults::MISSING_TAG~;
+		};
+		tmpl = tmpl[end + tag_end.len..];
+
+		tag.start = start;
+		tag.end = start + tag_start.len + end + tag_end.len;
+		tags.push(tag);
+	}
+
+	*self = { .allocator = using, .template = template, .tags = tags.array_view() };
+}
+
+fn void? TextTemplate.free(&self)
+{
+	alloc::free(self.allocator, self.tags);
+	*self = {};
+}
+
+fn sz? TextTemplate.write_to(&self, OutStream writer)
+{
+	sz n;
+	sz pos;
+	foreach (tag : self.tags)
+	{
+			n += writer.write(self.template[pos:tag.start])!;
+			pos += tag.end;
+			n += tag.write(writer)!;
+	}
+	n += writer.write(self.template[pos..])!;
+	return n;
+}
+
+fn sz? TextTag.write(&self, OutStream writer)
+{
+	switch (self.kind)
+	{
+		case STRING:
+			return writer.write(*self.data);
+		case TEMPLATE:
+			return self.template.write_to(writer);
+	}
+}
+
+module text_test;
+import abc;
+import std::io;
+
+alias Tmpl = TextTemplate{Data};
+
+struct Data
+{
+	String user;
+	String world;
+	bool ok;
+}
+
+
+
+alias FooTmpl = TextTemplate{Foo};
+alias BarTmpl = TextTemplate{Bar};
+
+struct Foo
+{
+	String foo;
+	BarTmpl* bar;
+}
+
+struct Bar
+{
+	String bar;
+}
+
+fn void main()
+{
+
+	String foo_tmpl = "<<{{foo}} | {{bar}}>>";
+	FooTmpl ft;
+	ft.init(foo_tmpl, using: tmem)!!;
+	defer ft.free()!!;
+
+
+}
+
+/* #expect: text_test.ll
+
+define void @text_test.main() #0 {
+entry:
+  %foo_tmpl = alloca %"char[]", align 8
+  %ft = alloca %"TextTemplate{Foo}", align 8
+  %error_var = alloca i64, align 8
+  %indirectarg = alloca %"char[]", align 8
+  %varargslots = alloca [1 x %any], align 16
+  %indirectarg1 = alloca %"any[]", align 8
+  %error_var2 = alloca i64, align 8
+  %varargslots7 = alloca [1 x %any], align 16
+  %indirectarg9 = alloca %"any[]", align 8
+  store %"char[]" { ptr @.str, i64 21 }, ptr %foo_tmpl, align 8
+  call void @llvm.memset.p0.i64(ptr align 8 %ft, i8 0, i64 72, i1 false)
+  %0 = call ptr @llvm.threadlocal.address.p0(ptr @std.core.mem.allocators.current_temp)
+  %lo = load ptr, ptr %foo_tmpl, align 8
+  %ptradd = getelementptr inbounds i8, ptr %foo_tmpl, i64 8
+  %hi = load i64, ptr %ptradd, align 8
+  store %"char[]" { ptr @.str.2, i64 2 }, ptr %indirectarg, align 8
+  %1 = call i64 @"abc.TextTemplate$text_test.Foo$.init"(ptr %ft, ptr %lo, i64 %hi, ptr @.str.1, i64 2, ptr byval(%"char[]") align 8 %indirectarg, ptr byval(%any) align 8 %0)
+  %not_err = icmp eq i64 %1, 0
+  %2 = call i1 @llvm.expect.i1(i1 %not_err, i1 true)
+  br i1 %2, label %after_check, label %assign_optional
+
+assign_optional:                                  ; preds = %entry
+  store i64 %1, ptr %error_var, align 8
+  br label %panic_block
+
+after_check:                                      ; preds = %entry
+  br label %noerr_block
+
+panic_block:                                      ; preds = %assign_optional
+  %3 = insertvalue %any undef, ptr %error_var, 0
+  %4 = insertvalue %any %3, i64 ptrtoint (ptr @"$ct.fault" to i64), 1
+  store %any %4, ptr %varargslots, align 16
+  %5 = insertvalue %"any[]" undef, ptr %varargslots, 0
+  %"$$temp" = insertvalue %"any[]" %5, i64 1, 1
+  store %"any[]" %"$$temp", ptr %indirectarg1, align 8
+  call void @std.core.builtin.panicf(ptr @.panic_msg,
+  unreachable
+
+noerr_block:                                      ; preds = %after_check
+  %6 = call i64 @"abc.TextTemplate$text_test.Foo$.free"(ptr %ft)
+  %not_err3 = icmp eq i64 %6, 0
+  %7 = call i1 @llvm.expect.i1(i1 %not_err3, i1 true)
+  br i1 %7, label %after_check5, label %assign_optional4
+
+assign_optional4:                                 ; preds = %noerr_block
+  store i64 %6, ptr %error_var2, align 8
+  br label %panic_block6
+
+after_check5:                                     ; preds = %noerr_block
+  br label %noerr_block10
+
+panic_block6:                                     ; preds = %assign_optional4
+  %8 = insertvalue %any undef, ptr %error_var2, 0
+  %9 = insertvalue %any %8, i64 ptrtoint (ptr @"$ct.fault" to i64), 1
+  store %any %9, ptr %varargslots7, align 16
+  %10 = insertvalue %"any[]" undef, ptr %varargslots7, 0
+  %"$$temp8" = insertvalue %"any[]" %10, i64 1, 1
+  store %"any[]" %"$$temp8", ptr %indirectarg9, align 8
+  call void @std.core.builtin.panicf(ptr @.panic_msg, i64 36,
+  unreachable
+
+noerr_block10:                                    ; preds = %after_check5
+  ret void
+}
