@@ -279,6 +279,30 @@
 			overflow-y: auto;
 			white-space: pre-wrap;
 			word-break: break-all;
+			-webkit-overflow-scrolling: touch;
+		}
+
+		#canvasContainer {
+			display: none;
+			background: #090d16;
+			border-bottom: 1px solid var(--border);
+			resize: vertical;
+			overflow: hidden;
+			height: 240px;
+			min-height: 80px;
+			max-height: 95%;
+		}
+
+		@media (max-width: 768px) {
+			#canvasContainer {
+				height: 140px;
+			}
+		}
+
+		@media (max-width: 768px) {
+			#canvasContainer {
+				height: 100px;
+			}
 		}
 
 		/* Clickable Compiler Links inside Output Console */
@@ -352,13 +376,6 @@
 		<div class="controls">
 			<select id="exampleSelect">
 				<option value="" disabled selected hidden>Examples...</option>
-				<option value="hello">Hello World</option>
-				<option value="slices_and_defer">Slices & Defer</option>
-				<option value="reflection">Reflection</option>
-				<option value="json_pretty_print">JSON Pretty Print</option>
-				<option value="vectors">SIMD Vectors</option>
-				<option value="errors">Error Handling</option>
-				<option value="bitstructs">Bitstructs</option>
 			</select>
 
 			<div class="status-container">
@@ -420,23 +437,39 @@
 					</svg>
 				</button>
 			</div>
+			<div id="canvasContainer">
+				<div style="display: flex; width: 100%; height: 100%; padding: 6px; align-items: center; justify-content: center; box-sizing: border-box;">
+					<canvas id="canvas" style="background: #000; border: 1px solid var(--border); image-rendering: pixelated; width: 100%; height: 100%; object-fit: contain;"></canvas>
+				</div>
+			</div>
 			<pre id="output"></pre>
 		</div>
 	</main>
 
 	<!-- Raw C3 Source Code Examples -->
-	<script type="text/c3" id="example-hello">
-module main;
+	<script type="text/c3" data-name="Hello World">module main;
 import std;
 
-fn int main()
+fn void main()
 {
-	io::printn("Hello from C3 inside WebAssembly!");
-	return 0;
+    String[] greetings = {
+        "Hello, world!",
+        "¡Hola Mundo!",
+        "Γειά σου Κόσμε!",
+        "Привет, мир!",
+        "こんにちは世界！",
+        "你好世界！",
+        "नमस्ते दुनिया!",
+        "👋🌎!"
+    };
+    foreach (greeting : greetings)
+    {
+        io::printn(greeting);
+    }
 }
 </script>
 
-	<script type="text/c3" id="example-slices_and_defer">module main;
+	<script type="text/c3" data-name="Slices & Defer">module main;
 import std;
 
 fn void heap_example()
@@ -491,7 +524,7 @@ fn void main()
 }
 </script>
 
-	<script type="text/c3" id="example-reflection">module main;
+	<script type="text/c3" data-name="Reflection">module main;
 import std;
 
 struct Point {
@@ -525,7 +558,7 @@ fn int main()
 }
 </script>
 
-	<script type="text/c3" id="example-json_pretty_print">
+	<script type="text/c3" data-name="JSON Pretty Print">
 module main;
 import std;
 
@@ -554,7 +587,7 @@ fn int main()
 }
 </script>
 
-	<script type="text/c3" id="example-vectors">module main;
+	<script type="text/c3" data-name="SIMD Vectors">module main;
 import std;
 
 fn void main()
@@ -598,7 +631,7 @@ fn void main()
 }
 </script>
 
-	<script type="text/c3" id="example-errors">module main;
+	<script type="text/c3" data-name="Error Handling">module main;
 import std;
 
 faultdef INVALID_CHAR, OUT_OF_RANGE; // Custom faults are declared globally
@@ -638,7 +671,7 @@ fn void main()
 }
 </script>
 
-	<script type="text/c3" id="example-bitstructs">module main;
+	<script type="text/c3" data-name="Bitstructs">module main;
 import std;
 
 // Bitstructs map fields into a specific backing integer layout
@@ -686,6 +719,136 @@ fn int main() {
 	return 0;
 }</script>
 
+	<script type="text/c3" data-name="Brainfuck interpreter">module brainfk;
+import std;
+
+fn void main()
+{
+	String program = `
+	++++[>+++++<-]>[<+++++>-]+<+[
+		>[>+>+<<-]++>>[<<+>>-]>>>[-]++>[-]+
+		>>>+[[-]++++++>>>]<<<[[<++++++++<++>>-]+<.<[>----<-]<]
+		<<[>>>>>[>>>[-]+++++++++<[>-<-]+++++++++>[-[<->-]+[<<<]]<[>+<-]>]<<-]<<-
+	]`;
+	brainf(program)!!;
+}
+
+const BF_MEM = 30000;
+char[BF_MEM] memory;
+
+faultdef INTEPRET_FAILED;
+
+fn void? print_error_type_at(sz pos, String err)
+{
+	io::printfn("Error at %s: %s", pos, err);
+	return INTEPRET_FAILED~;
+}
+
+fn void? brainf(String program)
+{
+	sz sp = 0;
+	sz mem = 0;
+	while (sp < program.len)
+	{
+		char c = program[sp++];
+		switch (c)
+		{
+			case '<':
+				if (!mem) return print_error_type_at(sp, "Memory underflow");
+				mem--;
+			case '>':
+				if (mem == BF_MEM - 1) return print_error_type_at(sp, "Memory overflow");
+				mem++;
+			case '+':
+				memory[mem]++;
+			case '-':
+				memory[mem]--;
+			case '.':
+				io::putchar(memory[mem]);
+				io::stdout().flush()!;
+			case ',':
+				memory[mem] = io::stdin().read_byte()!!;
+			case '[':
+				sz indent = 1;
+				if (memory[mem]) continue;
+				sz start = sp - 1;
+				while (indent)
+				{
+					if (sp == program.len) return print_error_type_at(start, "No matching ']'");
+					switch (program[sp++])
+					{
+						case ']': indent--;
+						case '[': indent++;
+						default: break;
+					}
+				}
+			case ']':
+				if (!memory[mem]) continue;
+				sz start = sp--;
+				sz indent = 1;
+				while (indent)
+				{
+					if (!sp) return print_error_type_at(start, "No matching '['");
+					switch (program[--sp])
+					{
+						case ']': indent++;
+						case '[': indent--;
+						default: break;
+					}
+				}
+				sp++;
+			default:
+				break;
+		}
+	}
+}
+</script>
+
+	<script type="text/c3" data-name="Psychedelic Vortex Canvas">module main;
+import std;
+
+const int WIDTH  = 320;
+const int HEIGHT = 240;
+
+alias Rgba = char[<4>];
+
+const Vec2 CENTER = { WIDTH * 0.5f, HEIGHT * 0.5f };
+
+Rgba[WIDTH][HEIGHT] pixels;
+int frame_count = 0;
+
+fn Rgba* get_pixels() @export("get_pixels") => (Rgba*)&pixels;
+
+fn void update() @export("update")
+{
+	frame_count++;
+	for (int y = 0; y < HEIGHT; y++)
+	{
+		for (int x = 0; x < WIDTH; x++)
+		{
+			Vec2 pos = { x, y } - CENTER;
+			float d = pos.length();
+
+			Vec4 waves = {
+				math::sin(pos.x * 0.05f + frame_count * 0.05f) + math::sin(d * 0.05f),
+				math::cos(pos.y * 0.05f - frame_count * 0.03f) + math::cos(d * 0.05f),
+				math::sin((pos.x + pos.y) * 0.03f + d * 0.04f),
+				2.0f
+			};
+
+			pixels[y][x] = (Rgba)(waves * 63.75f + 127.5f).bgra;
+		}
+	}
+}
+
+fn int main()
+{
+	io::printn("Psychedelic Vector Vortex Initialized!");
+	io::printn("Rendering with C3 SIMD vectors and standard library math directly in WASM.");
+	return 0;
+}
+</script>
+
 	<!-- Load Monaco Editor v0.56.0 Loader from jsDelivr -->
 	<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs/loader.js"></script>
 	<script src="build/emscripten_runtime.js"></script>
@@ -722,16 +885,6 @@ fn int main() {
 			throw new Error("Execution stopped on iOS/iPadOS device.");
 		}
 
-		const examples = {
-			hello: document.getElementById("example-hello").textContent.trim(),
-			slices_and_defer: document.getElementById("example-slices_and_defer").textContent.trim(),
-			reflection: document.getElementById("example-reflection").textContent.trim(),
-			json_pretty_print: document.getElementById("example-json_pretty_print").textContent.trim(),
-			vectors: document.getElementById("example-vectors").textContent.trim(),
-			errors: document.getElementById("example-errors").textContent.trim(),
-			bitstructs: document.getElementById("example-bitstructs").textContent.trim()
-		};
-
 		const outputEl = document.getElementById("output");
 		const statusEl = document.getElementById("status");
 		const statusTooltipEl = document.getElementById("statusTooltip");
@@ -743,6 +896,22 @@ fn int main() {
 		const exampleSelect = document.getElementById("exampleSelect");
 		const resizer = document.getElementById("resizer");
 		const mainLayout = document.getElementById("mainLayout");
+
+		// Dynamically discover code examples from script tags using only the data-name attribute
+		const examples = {};
+		document.querySelectorAll('script[type="text/c3"][data-name]').forEach(script => {
+			const label = script.getAttribute("data-name");
+			// Generate a clean slug for storage/keys (like: "Slices & Defer" -> "slices_and_defer")
+			const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+			
+			examples[key] = script.textContent.trim();
+
+			// Add option directly to the select dropdown
+			const opt = document.createElement("option");
+			opt.value = key;
+			opt.textContent = label;
+			exampleSelect.appendChild(opt);
+		});
 
 		let editor = null;
 		let compiledCompilerModule = null;
@@ -770,7 +939,7 @@ fn int main() {
 			setTimeout(() => { isNavigating = false; }, 400);
 		}, true);
 
-		// Native Async GZIP compression via browser's Compression Streams API (dependency-free)
+		// Native Async GZIP compression via browser's Compression Streams API
 		async function compressCode(str) {
 			const byteArray = new TextEncoder().encode(str);
 			const cs = new CompressionStream("gzip");
@@ -947,6 +1116,9 @@ fn int main() {
 			const fallbackMatches = docDbSymbols.filter(s => s.name === namePart);
 			return fallbackMatches;
 		}
+
+		// Track Canvas Event loops
+		let activeCanvasLoopId = null;
 
 		function formatSymbolHover(sym) {
 			const contents = [];
@@ -1316,18 +1488,22 @@ fn int main() {
 				}
 			});
 
+			// Determine the default fallback example (the first one defined in the HTML)
+			const exampleKeys = Object.keys(examples);
+			const defaultExampleKey = exampleKeys[0] || "";
+
 			const savedCode = localStorage.getItem("c3_playground_code");
 			const savedExample = localStorage.getItem("c3_playground_selected_example");
 			const sharedCode = await getSharedCode();
 
-			const initialCodeValue = sharedCode !== null ? sharedCode : (savedCode !== null ? savedCode : examples.hello);
+			const initialCodeValue = sharedCode !== null ? sharedCode : (savedCode !== null ? savedCode : examples[defaultExampleKey]);
 
 			if (sharedCode !== null) {
 				exampleSelect.value = "";
 			} else if (savedExample && examples[savedExample]) {
 				exampleSelect.value = savedExample;
 			} else {
-				exampleSelect.value = "hello";
+				exampleSelect.value = defaultExampleKey;
 			}
 
 			editor = monaco.editor.create(document.getElementById("code"), {
@@ -1341,10 +1517,16 @@ fn int main() {
 				tabSize: 4,
 				insertSpaces: false,
 				detectIndentation: false,
-				minimap: { enabled: true }
+				minimap: { enabled: true },
+				unicodeHighlight: {
+					allowedLocales: {
+						el: true
+					}
+				}
 			});
 
 			editor.layout();
+			editor.focus();
 
 			editor.onDidChangeModelContent(() => {
 				localStorage.setItem("c3_playground_code", editor.getValue());
@@ -1376,14 +1558,26 @@ fn int main() {
 		});
 
 		let isAnyCompilerTaskRunning = false;
+		let activeWorker = null;
+		let activeTaskType = null;
 		let compilerWorkerBlobUrl = null;
 
 		async function executeCompilerTask(taskType, sourceCode, onMessageCallback) {
 			if (isAnyCompilerTaskRunning) {
-				console.warn(`[Execute Task] A compiler task is already running. Skipping task of type '${taskType}'.`);
-				return;
+				// Abort low priority background operations if a new process requested it
+				if (activeWorker && (activeTaskType === "docgen" || activeTaskType === "version")) {
+					console.log(`[Execute Task] Forcibly terminating background task '${activeTaskType}' to start '${taskType}'.`);
+					activeWorker.terminate();
+					isAnyCompilerTaskRunning = false;
+					activeWorker = null;
+					activeTaskType = null;
+				} else {
+					console.warn(`[Execute Task] A compiler task is already running. Skipping task of type '${taskType}'.`);
+					return;
+				}
 			}
 			isAnyCompilerTaskRunning = true;
+			activeTaskType = taskType;
 
 			if (taskType === "compile") {
 				compileBtn.disabled = true;
@@ -1394,6 +1588,7 @@ fn int main() {
 			if (!c3WorkerJsText) {
 				console.error("[Execute Task] c3WorkerJsText is not loaded!");
 				isAnyCompilerTaskRunning = false;
+				activeTaskType = null;
 				if (taskType === "compile") {
 					compileBtn.disabled = false;
 					setStatus("Compiler Ready", "ready");
@@ -1406,6 +1601,7 @@ fn int main() {
 				compilerWorkerBlobUrl = URL.createObjectURL(blob);
 			}
 			const tempWorker = new Worker(compilerWorkerBlobUrl);
+			activeWorker = tempWorker;
 
 			let initComplete = false;
 
@@ -1413,6 +1609,8 @@ fn int main() {
 				console.warn(`[Execute Task] Worker of type '${taskType}' crashed/aborted unexpectedly. Terminating.`, err);
 				tempWorker.terminate();
 				isAnyCompilerTaskRunning = false;
+				activeWorker = null;
+				activeTaskType = null;
 				if (taskType === "compile") {
 					outputEl.textContent += "\n[FATAL ERROR] Compiler worker crashed unexpectedly. Please refresh if issues persist.\n";
 					compileBtn.disabled = false;
@@ -1446,6 +1644,8 @@ fn int main() {
 				try {
 					tempWorker.terminate();
 					isAnyCompilerTaskRunning = false;
+					activeWorker = null;
+					activeTaskType = null;
 					if (taskType === "compile") {
 						compileBtn.disabled = false;
 						setStatus("Compiler Ready", "ready");
@@ -1456,6 +1656,8 @@ fn int main() {
 					if (!callbackFinished) {
 						tempWorker.terminate();
 						isAnyCompilerTaskRunning = false;
+						activeWorker = null;
+						activeTaskType = null;
 						if (taskType === "compile") {
 							compileBtn.disabled = false;
 							setStatus("Compiler Ready", "ready");
@@ -1469,6 +1671,8 @@ fn int main() {
 					console.error(`[Execute Task] Worker of type '${taskType}' failed to initialize within timeout. Terminating.`);
 					tempWorker.terminate();
 					isAnyCompilerTaskRunning = false;
+					activeWorker = null;
+					activeTaskType = null;
 					if (taskType === "compile") {
 						outputEl.textContent += "\n[FATAL ERROR] Compiler worker failed to initialize. Please refresh.\n";
 						compileBtn.disabled = false;
@@ -1571,7 +1775,7 @@ fn int main() {
 
 				const workerJsFetchPromise = fetch('c3-worker.js').then(res => {
 					if (!res.ok) throw new Error('Failed to fetch c3-worker.js');
-					return res.text();
+					return text = res.text();
 				}).then(text => {
 					c3WorkerJsText = text;
 					console.log("Successfully loaded c3-worker.js text (" + text.length + " chars)");
@@ -1616,12 +1820,20 @@ fn int main() {
 		}
 
 		compileBtn.onclick = () => {
-			if (!editor || isAnyCompilerTaskRunning) {
-				if (isAnyCompilerTaskRunning) console.warn("[Compile Button] Ignoring click: another task is already running.");
+			if (!editor) return;
+			if (isAnyCompilerTaskRunning && activeTaskType === "compile") {
+				console.warn("[Compile Button] Ignoring click: a compilation task is already running.");
 				return;
 			}
 			const codeValue = editor.getValue();
 			console.log("Compile button clicked. Source length:", codeValue.length);
+
+			// Hide canvas and cancel current loop
+			document.getElementById("canvasContainer").style.display = "none";
+			if (activeCanvasLoopId) {
+				cancelAnimationFrame(activeCanvasLoopId);
+				activeCanvasLoopId = null;
+			}
 
 			rawConsoleOutput = "";
 			outputEl.innerHTML = "";
@@ -1850,6 +2062,50 @@ fn int main() {
 					const ret = mainFn(0, 0);
 					rawConsoleOutput += "\n[Process finished with exit code " + ret + "]\n";
 					outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
+
+					// Hook into Canvas loop if exports are present
+					const getPixelsFn = instance.wasmExports?.get_pixels;
+					const updateFn = instance.wasmExports?.update;
+
+					if (getPixelsFn && updateFn) {
+						console.log("[Canvas Runtime] Shared pixel buffer detected. Starting loop.");
+						const canvas = document.getElementById("canvas");
+						const ctx = canvas.getContext("2d");
+						const width = 320;
+						const height = 240;
+
+						canvas.width = width;
+						canvas.height = height;
+
+						const imgData = ctx.createImageData(width, height);
+						document.getElementById("canvasContainer").style.display = "block";
+
+						// Capture a local reference to the active module instance
+						const localInstance = instance;
+
+						// Resolve WebAssembly memory buffer using standard exports fallback chain
+						const memoryBuffer = localInstance.wasmExports?.memory?.buffer 
+							|| localInstance.HEAPU8?.buffer 
+							|| localInstance.asm?.memory?.buffer;
+
+						if (!memoryBuffer) {
+							console.error("[Canvas Runtime] Failed to resolve WebAssembly memory buffer!");
+							return;
+						}
+
+						function loop() {
+							updateFn();
+							const ptr = getPixelsFn();
+							const size = width * height * 4;
+							
+							const view = new Uint8ClampedArray(memoryBuffer, ptr, size);
+							imgData.data.set(view);
+							ctx.putImageData(imgData, 0, 0);
+
+							activeCanvasLoopId = requestAnimationFrame(loop);
+						}
+						activeCanvasLoopId = requestAnimationFrame(loop);
+					}
 				} else {
 					rawConsoleOutput += "[ERR] Entry point 'main' not found in WASM exports\n";
 					outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
@@ -1859,7 +2115,10 @@ fn int main() {
 				rawConsoleOutput += "\n[Execution Error] " + err + "\n";
 				outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
 			} finally {
-				instance = null;
+				// Only clear local instance reference if we are not running a continuous canvas loop
+				if (!activeCanvasLoopId) {
+					instance = null;
+				}
 			}
 		}
 	</script>

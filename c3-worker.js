@@ -9,6 +9,9 @@ let isDocgenRunning = false;
 let versionBuffer = [];
 let isVersionRunning = false;
 
+// TODO: Toggle this to true to silence the Emscripten unflushed stdio assertion warnings
+const SILENCE_EMSCRIPTEN_STDIO_WARNINGS = false;
+
 const moduleProto = {
 	wasmBinary: null,
 	cachedData: null // Holds the pre-downloaded c3c.data ArrayBuffer
@@ -50,11 +53,18 @@ Module.locateFile = function (path) {
 	return path;
 };
 
+// Helper function to check if an Emscripten warning should be suppressed
+function shouldSilenceWarning(text) {
+	if (!SILENCE_EMSCRIPTEN_STDIO_WARNINGS) {
+		return false;
+	}
+	return text.includes("stdio streams had content in them that was not flushed") ||
+	       text.includes("you should set EXIT_RUNTIME to 1") ||
+	       text.includes("this may also be due to not including full filesystem support");
+}
+
 Module.print = function (text) {
-	// Intercept and silence the Emscripten unflushed stdio assertion warning
-	if (text.includes("stdio streams had content in them that was not flushed") ||
-		text.includes("you should set EXIT_RUNTIME to 1") ||
-		text.includes("this may also be due to not including full filesystem support")) {
+	if (shouldSilenceWarning(text)) {
 		console.warn("[Worker Intercepted Warning] " + text);
 		return;
 	}
@@ -80,10 +90,7 @@ Module.printErr = function (text) {
 		return;
 	}
 
-	// Intercept and silence the Emscripten unflushed stdio assertion warning on stderr
-	if (text.includes("stdio streams had content in them that was not flushed") ||
-		text.includes("you should set EXIT_RUNTIME to 1") ||
-		text.includes("this may also be due to not including full filesystem support")) {
+	if (shouldSilenceWarning(text)) {
 		console.warn("[Worker Intercepted Warning] " + text);
 		return;
 	}
@@ -96,16 +103,6 @@ Module.onRuntimeInitialized = function () {
 	runtimeReady = true;
 	postMessage({ type: 'ready' });
 };
-
-// Helper to strip non-JSON header logs or warnings from stdout
-function extractJSON(str) {
-	const firstBrace = str.indexOf('{');
-	const lastBrace = str.lastIndexOf('}');
-	if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-		return str.substring(firstBrace, lastBrace + 1);
-	}
-	return str;
-}
 
 self.onmessage = function (e) {
 	const msg = e.data;
