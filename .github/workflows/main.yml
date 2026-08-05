@@ -44,6 +44,9 @@ jobs:
         shell: bash
         run: ./build.sh Release latest
 
+      - name: Copy Favicon to dist
+        run: cp favicon.svg dist/
+
       - name: Setup Pages
         uses: actions/configure-pages@v6
 
