@@ -5,7 +5,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>C3 Playground</title>
-	<link rel="icon" type="image/svg+xml" href="favicon.svg">
+	<link class="icon" type="image/svg+xml" href="favicon.svg">
 	<style>
 		:root {
 			--bg-dark: #0f172a;
@@ -1728,30 +1728,11 @@ fn int main()
 				console.log("Starting parallel download of all compiler assets...");
 
 				const wasmFetchPromise = (async () => {
-					let wasmBuffer;
-					try {
-						console.log("Attempting to fetch full build/c3c.wasm...");
+					console.log("Fetching compiler module build/c3c.wasm...");
 						const res = await fetch('build/c3c.wasm');
-						if (!res.ok) throw new Error('Not found');
-						wasmBuffer = await res.arrayBuffer();
-						console.log(`Successfully fetched full build/c3c.wasm (${wasmBuffer.byteLength} bytes)`);
-					} catch (err) {
-						console.log("Falling back to split files (build/c3c.wasm.part_aa/ab)...");
-						const parts = ['build/c3c.wasm.part_aa', 'build/c3c.wasm.part_ab'];
-						const buffers = await Promise.all(parts.map(url => fetch(url).then(res => {
-							if (!res.ok) throw new Error('Failed to fetch ' + url);
-							return res.arrayBuffer();
-						})));
-						const totalLen = buffers.reduce((acc, b) => acc + b.byteLength, 0);
-						const combined = new Uint8Array(totalLen);
-						let offset = 0;
-						for (const b of buffers) {
-							combined.set(new Uint8Array(b), offset);
-							offset += b.byteLength;
-						}
-						wasmBuffer = combined.buffer;
-						console.log(`Successfully combined split parts (${wasmBuffer.byteLength} bytes)`);
-					}
+					if (!res.ok) throw new Error('Failed to fetch c3c.wasm (status: ' + res.status + ')');
+					const wasmBuffer = await res.arrayBuffer();
+					
 					console.log("Compiling WebAssembly compiler module...");
 					compiledCompilerModule = await WebAssembly.compile(wasmBuffer);
 					console.log("WebAssembly compiler module compiled successfully!");

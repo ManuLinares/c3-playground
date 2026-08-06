@@ -6,7 +6,6 @@ LLVM_TAG="${2:-latest}"
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-#PROJECT_ROOT="${SCRIPT_DIR}/c3c"
 PROJECT_ROOT="${HOME}/scripts/c3c"
 BUILD_DIR="${SCRIPT_DIR}/build"
 SYS_LIB_DIR="${BUILD_DIR}/wasm32-emscripten"
@@ -19,7 +18,7 @@ echo "Project Root:   ${PROJECT_ROOT}"
 echo "Build Output:   ${BUILD_DIR}"
 echo "Dist Directory: ${DIST_DIR}"
 
-# 1. Build and copy Emscripten system static archives for C3 builtin linker
+# 1. Build and copy Emscripten system static archives for C3 builtin linker [2]
 mkdir -p "${SYS_LIB_DIR}"
 embuilder build libc libdlmalloc libstubs libsockets
 
@@ -38,7 +37,7 @@ done
 # which satisfies any implicit -lm requirements without compiling a dummy object.
 cp "${SYS_LIB_DIR}/libc.a" "${SYS_LIB_DIR}/libm.a"
 
-# 2. Configure and compile c3c to WebAssembly
+# 2. Configure and compile c3c to WebAssembly [2]
 emcmake cmake -B "${BUILD_DIR}" -S "${PROJECT_ROOT}" -G Ninja \
   -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
   -DC3_WITH_LLVM=ON \
@@ -50,50 +49,29 @@ emcmake cmake -B "${BUILD_DIR}" -S "${PROJECT_ROOT}" -G Ninja \
   -DBUILD_SHARED_LIBS=OFF \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=OFF \
   -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
-  -DCMAKE_EXE_LINKER_FLAGS="-sALLOW_MEMORY_GROWTH=1 -sFORCE_FILESYSTEM=1 -sEXIT_RUNTIME=0 -sINITIAL_MEMORY=256MB -sSTACK_SIZE=8MB -sERROR_ON_UNDEFINED_SYMBOLS=0 -sEXPORTED_RUNTIME_METHODS=FS,callMain -sEXPORTED_FUNCTIONS=_main,_fflush -sINCOMING_MODULE_JS_API=wasmBinary,noInitialRun,instantiateWasm,locateFile,print,printErr,onRuntimeInitialized --preload-file ${HOST_LIB_DIR}@/usr/lib/c3 --preload-file ${SYS_LIB_DIR}@/usr/lib/c3/wasm32-emscripten"
+  -DCMAKE_EXE_LINKER_FLAGS="-sALLOW_MEMORY_GROWTH=1 -sFORCE_FILESYSTEM=1 -sEXIT_RUNTIME=0 -sINITIAL_MEMORY=256MB -sSTACK_SIZE=8MB -sERROR_ON_UNDEFINED_SYMBOLS=0 -sEXPORTED_RUNTIME_METHODS=FS,callMain -sEXPORTED_FUNCTIONS=_main,_fflush --preload-file ${HOST_LIB_DIR}@/usr/lib/c3 --preload-file ${SYS_LIB_DIR}@/usr/lib/c3/wasm32-emscripten"
 
 cmake --build "${BUILD_DIR}"
 
-# 3. Build standalone Emscripten runtime JS glue for user WASM execution
+# 3. Build standalone Emscripten runtime JS glue (LINKABLE=1 simplifies this completely)
+echo "Building standalone Emscripten runtime JS glue..."
+emcc -xc /dev/null -o "${BUILD_DIR}/emscripten_runtime.js" \
+  -s INCLUDE_FULL_LIBRARY=1 \
+  -s LINKABLE=1 \
+  -s ASSERTIONS=0 \
+  -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
+  -s FORCE_FILESYSTEM=1 \
+  -s ALLOW_MEMORY_GROWTH=1 \
+  -s EXIT_RUNTIME=0 \
+  -s MODULARIZE=1 \
+  -s EXPORT_NAME=C3EmscriptenRuntime \
+  -s INCOMING_MODULE_JS_API="['wasmBinary','print','printErr','onExit','noInitialRun']"
+
+# Apply standard text-replacement patches to the output JS file [1]
 python3 -c '
-import sys, os, json, subprocess, shutil
+import sys
 
 out_path = sys.argv[1]
-emcc_path = shutil.which("emcc")
-if emcc_path:
-    em_dir = os.path.dirname(os.path.realpath(emcc_path))
-    sys.path.insert(0, em_dir)
-
-from tools.settings import settings
-settings.INCLUDE_FULL_LIBRARY = True
-from tools.link import get_js_sym_info
-
-info = get_js_sym_info()
-deps = info.get("deps", {})
-syms = []
-for name in deps.keys():
-    if name.startswith("emscripten_asm_const") or name.startswith("GL"):
-        continue
-    syms.append(name if name.startswith("$") else "$" + name)
-
-funcs_json = json.dumps(syms)
-cmd = [
-    "emcc", "-xc", "/dev/null", "-o", out_path,
-    "-s", "INCLUDE_FULL_LIBRARY=1",
-    "-s", "DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=" + funcs_json,
-    "-s", "ASSERTIONS=0",
-    "-s", "ERROR_ON_UNDEFINED_SYMBOLS=0",
-    "-s", "FORCE_FILESYSTEM=1",
-    "-s", "ALLOW_MEMORY_GROWTH=1",
-    "-s", "EXIT_RUNTIME=0",
-    "-s", "MODULARIZE=1",
-    "-s", "EXPORT_NAME=C3EmscriptenRuntime",
-    "-s", "INCOMING_MODULE_JS_API=[\"wasmBinary\",\"print\",\"printErr\",\"onExit\",\"noInitialRun\"]"
-]
-res = subprocess.run(cmd)
-if res.returncode != 0:
-    sys.exit(res.returncode)
-
 with open(out_path, "r") as f:
     content = f.read()
 
@@ -129,7 +107,7 @@ with open(out_path, "w") as f:
     f.write(content)
 ' "${BUILD_DIR}/emscripten_runtime.js"
 
-# 4. Assemble Deployment Directory (dist/)
+# 4. Assemble Deployment Directory (dist/) [2]
 echo "Assembling deployment folder inside: ${DIST_DIR}..."
 rm -rf "${DIST_DIR}"
 mkdir -p "${DIST_DIR}/build"
@@ -140,27 +118,7 @@ cp "${SCRIPT_DIR}/c3-worker.js" "${DIST_DIR}/"
 cp "${BUILD_DIR}/c3c.js" "${DIST_DIR}/build/"
 cp "${BUILD_DIR}/c3c.data" "${DIST_DIR}/build/"
 cp "${BUILD_DIR}/emscripten_runtime.js" "${DIST_DIR}/build/"
-
-if [ -f "${BUILD_DIR}/c3c.wasm" ]; then
-  if command -v split &>/dev/null; then
-    echo "Splitting c3c.wasm into <25MB chunks..."
-    split -b 20M "${BUILD_DIR}/c3c.wasm" "${DIST_DIR}/build/c3c.wasm.part_"
-  else
-    echo "Warning: 'split' tool not found, copying raw c3c.wasm..."
-    cp "${BUILD_DIR}/c3c.wasm" "${DIST_DIR}/build/"
-  fi
-fi
-
-# 5. Integrated Packaging (ZIP)
-if command -v zip &> /dev/null; then
-  echo "Packaging assets to ${BUILD_DIR}/site.zip..."
-  rm -f "${BUILD_DIR}/site.zip"
-  (
-    cd "${DIST_DIR}"
-    zip -q -r "${BUILD_DIR}/site.zip" .
-  )
-  echo "Successfully packaged to ${BUILD_DIR}/site.zip"
-fi
+cp "${BUILD_DIR}/c3c.wasm" "${DIST_DIR}/build/" # Directly copied!
 
 echo ""
 echo "Build complete."
