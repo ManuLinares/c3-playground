@@ -44,6 +44,9 @@ jobs:
         shell: bash
         run: ./build.sh Release latest
 
+      - name: Run Integration Tests
+        run: node c3-worker.js
+
       - name: Copy Favicon to dist
         run: cp favicon.svg dist/
 

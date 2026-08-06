@@ -1363,6 +1363,34 @@ fn int main()
 			monaco.languages.register({ id: 'c3' });
 			monaco.languages.setMonarchTokensProvider('c3', definition());
 
+			monaco.languages.setLanguageConfiguration('c3', {
+				comments: {
+					lineComment: '//',
+					blockComment: ['/*', '*/'],
+				},
+				brackets: [
+					['{', '}'],
+					['[', ']'],
+					['(', ')']
+				],
+				autoClosingPairs: [
+					{ open: '{', close: '}' },
+					{ open: '[', close: ']' },
+					{ open: '(', close: ')' },
+					{ open: '"', close: '"', notIn: ['string'] },
+					{ open: "'", close: "'", notIn: ['string', 'comment'] },
+					{ open: '`', close: '`', notIn: ['string', 'comment'] }
+				],
+				surroundingPairs: [
+					{ open: '{', close: '}' },
+					{ open: '[', close: ']' },
+					{ open: '(', close: ')' },
+					{ open: '"', close: '"' },
+					{ open: "'", close: "'" },
+					{ open: '`', close: '`' }
+				]
+			});
+
 			monaco.languages.registerCompletionItemProvider('c3', {
 				triggerCharacters: ['@', '$'],
 
