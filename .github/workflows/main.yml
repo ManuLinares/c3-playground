@@ -36,10 +36,10 @@ jobs:
             echo "PR 3415 fetch failed or already merged. Proceeding with default branch."
           fi
 
-      # - name: Install System Dependencies
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y ninja-build zip
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
 
       - name: Setup Emscripten (WebAssembly Compiler)
         uses: emscripten-core/setup-emsdk@v16
