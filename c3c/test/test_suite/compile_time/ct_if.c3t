@@ -1,8 +1,0 @@
-// #target: macos-x64
-int x @feat(POSIX & !POSIX) = 1;
-
-int d @feat(POSIX, !POSIX) = 5;
-
-/* #expect: ct_if.ll
-
-@ct_if.d = local_unnamed_addr global i32 5, align 4

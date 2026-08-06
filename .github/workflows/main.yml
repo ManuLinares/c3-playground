@@ -24,10 +24,17 @@ jobs:
       - name: Check out host repository
         uses: actions/checkout@v7
 
-# I'll wait until the fixes are merged https://github.com/c3lang/c3c/pull/3415
-      # - name: Shallow Clone C3 Compiler Sources
-      #   run: |
-      #     git clone --depth 1 https://github.com/c3lang/c3c.git c3c
+      - name: Clone C3 Compiler & Checkout PR 3415
+        run: |
+          git clone https://github.com/c3lang/c3c.git c3c
+          cd c3c
+
+          if git fetch origin pull/3415/head:pr-3415; then
+            git checkout pr-3415
+            echo "Successfully checked out and applied PR 3415"
+          else
+            echo "PR 3415 fetch failed or already merged. Proceeding with default branch."
+          fi
 
       # - name: Install System Dependencies
       #   run: |

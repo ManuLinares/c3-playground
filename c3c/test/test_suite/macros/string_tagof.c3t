@@ -1,6 +1,0 @@
-fn int main()
-{
-    $if String::has_tag(""):
-    $endif
-    return 0;
-}

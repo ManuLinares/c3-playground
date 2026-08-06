@@ -1,1 +1,0 @@
-double x = 0x12.00; // #error: must end with 'p' or 'P'

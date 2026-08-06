@@ -1,7 +1,0 @@
-alias c = main;
-void* e = &c;
-
-fn int main()
-{
-	return 0;
-}

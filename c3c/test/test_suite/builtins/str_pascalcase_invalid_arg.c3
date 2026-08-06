@@ -1,2 +1,0 @@
-module std::test;
-fn int main() => $$str_pascalcase(foo); // #error: 'foo' could not be found, did you spell it right?

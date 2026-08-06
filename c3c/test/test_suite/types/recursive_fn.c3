@@ -1,1 +1,0 @@
-alias BlahFn = fn int(BlahFn f); // #error: Recursive definition of 'BlahFn'

@@ -1,1 +1,0 @@
-extern const FOO; // #error: A type is needed for the extern constant 'FOO'

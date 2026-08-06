@@ -1,5 +1,0 @@
-// #file: enum_value_visibility.c3
-enum TypeName
-{
-	AAA @private, // #error: '@private' cannot be used here.
-}

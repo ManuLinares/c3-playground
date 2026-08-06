@@ -1,1 +1,0 @@
-const A @if(; // #error: An expression was expected.

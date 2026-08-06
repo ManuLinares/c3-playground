@@ -1,1 +1,0 @@
-alias foo = module; // #error: 'module' should be followed by a module name.

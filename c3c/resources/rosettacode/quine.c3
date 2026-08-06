@@ -1,1 +1,0 @@
-import std::io; fn void main() => io::printfn("%sString q = \x60%s\x60;", q, q);String q = `import std::io; fn void main() => io::printfn("%sString q = \x60%s\x60;", q, q);`;

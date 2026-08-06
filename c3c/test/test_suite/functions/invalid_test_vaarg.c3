@@ -1,1 +1,0 @@
-fn void asdf(...) @test; // #error: '@test' and '@benchmark' functions may not take any parameters.

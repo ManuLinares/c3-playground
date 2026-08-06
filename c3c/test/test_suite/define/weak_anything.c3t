@@ -1,7 +1,0 @@
-const typeid A = Abc::typeid;
-alias Abc @weak = int;
-alias Abc = double;
-fn void main()
-{
-
-}

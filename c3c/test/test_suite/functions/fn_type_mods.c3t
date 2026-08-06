@@ -1,3 +1,0 @@
-alias Abc = fn void() @noreturn;
-alias Abc2 = fn void?() @maydiscard;
-alias Abc3 = fn void*() @nodiscard;

@@ -1,7 +1,0 @@
-fn int main()
-{
-    int[] x;
-    int a;
-    x[(a = 52)..2] = 5;
-    return 0;
-}

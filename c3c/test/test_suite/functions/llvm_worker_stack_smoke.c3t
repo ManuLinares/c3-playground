@@ -1,2 +1,0 @@
-// #opt: -O1 
-fn uint boom(uint a) @noinline => a + 1;

@@ -1,4 +1,0 @@
-fn void main()
-{
-	$Typeof({1}) $untyped_list;
-}

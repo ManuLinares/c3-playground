@@ -1,3 +1,0 @@
-module baz::foo;
-// This is implicitly weak
-fn void test();
