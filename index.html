@@ -2,735 +2,735 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>C3 Playground</title>
-    <link class="icon" type="image/svg+xml" href="favicon.svg">
-    <style>
-        :root {
-            --bg-dark: #0f172a;
-            --panel-bg: #1e293b;
-            --border: #334155;
-            --accent: #38bdf8;
-            --accent-hover: #0284c7;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --console-bg: #090d16;
-        }
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>C3 Playground</title>
+	<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+	<style>
+		:root {
+			--bg-dark: #0f172a;
+			--panel-bg: #1e293b;
+			--border: #334155;
+			--accent: #38bdf8;
+			--accent-hover: #0284c7;
+			--text-main: #f8fafc;
+			--text-muted: #94a3b8;
+			--console-bg: #090d16;
+		}
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+		* {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 0;
+		}
 
-        body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+		body {
+			font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			background-color: var(--bg-dark);
+			color: var(--text-main);
+			height: 100vh;
+			display: flex;
+			flex-direction: column;
+		}
 
-        header {
-            background-color: var(--panel-bg);
-            border-bottom: 1px solid var(--border);
-            padding: 12px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+		header {
+			background-color: var(--panel-bg);
+			border-bottom: 1px solid var(--border);
+			padding: 12px 24px;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
 
-        header h1 img {
-            height: 24px;
-            width: auto;
-        }
+		header h1 img {
+			height: 24px;
+			width: auto;
+		}
 
-        header h1 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--accent);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
+		header h1 {
+			font-size: 1.25rem;
+			font-weight: 600;
+			color: var(--accent);
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			flex-wrap: wrap;
+		}
 
-        /* Documentation Link Style */
-        .docs-link {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-weight: normal;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            transition: color 0.2s ease;
-        }
+		/* Documentation Link Style */
+		.docs-link {
+			font-size: 0.85rem;
+			color: var(--text-muted);
+			text-decoration: none;
+			font-weight: normal;
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+			transition: color 0.2s ease;
+		}
 
-        .docs-link:hover {
-            color: var(--accent);
-        }
+		.docs-link:hover {
+			color: var(--accent);
+		}
 
-        .controls {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
+		.controls {
+			display: flex;
+			gap: 12px;
+			align-items: center;
+		}
 
-        select,
-        button {
-            font-size: 0.9rem;
-            padding: 8px 16px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            background: var(--bg-dark);
-            color: var(--text-main);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
+		select,
+		button {
+			font-size: 0.9rem;
+			padding: 8px 16px;
+			border-radius: 6px;
+			border: 1px solid var(--border);
+			background: var(--bg-dark);
+			color: var(--text-main);
+			cursor: pointer;
+			transition: all 0.2s ease;
+		}
 
-        select:focus,
-        button:focus {
-            outline: none;
-            border-color: var(--accent);
-        }
+		select:focus,
+		button:focus {
+			outline: none;
+			border-color: var(--accent);
+		}
 
-        button.primary {
-            background-color: var(--accent);
-            color: #0f172a;
-            font-weight: 600;
-            border: none;
-        }
+		button.primary {
+			background-color: var(--accent);
+			color: #0f172a;
+			font-weight: 600;
+			border: none;
+		}
 
-        button.primary:hover:not(:disabled) {
-            background-color: var(--accent-hover);
-            color: #fff;
-        }
+		button.primary:hover:not(:disabled) {
+			background-color: var(--accent-hover);
+			color: #fff;
+		}
 
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+		button:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
 
-        /* Status Badge & Custom Monospaced Tooltip Container */
-        .status-container {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-        }
+		/* Status Badge & Custom Monospaced Tooltip Container */
+		.status-container {
+			position: relative;
+			display: inline-flex;
+			align-items: center;
+		}
 
-        .status-badge {
-            font-size: 0.8rem;
-            padding: 4px 8px;
-            border-radius: 12px;
-            background: #334155;
-            color: var(--text-muted);
-            transition: all 0.2s ease;
-            user-select: none;
-        }
+		.status-badge {
+			font-size: 0.8rem;
+			padding: 4px 8px;
+			border-radius: 12px;
+			background: #334155;
+			color: var(--text-muted);
+			transition: all 0.2s ease;
+			user-select: none;
+		}
 
-        .status-badge.ready {
-            background: #064e3b;
-            color: #34d399;
-            cursor: pointer;
-        }
+		.status-badge.ready {
+			background: #064e3b;
+			color: #34d399;
+			cursor: pointer;
+		}
 
-        .status-badge.ready:hover {
-            background: #047857;
-            color: #10b981;
-        }
+		.status-badge.ready:hover {
+			background: #047857;
+			color: #10b981;
+		}
 
-        .status-badge.compiling {
-            background: #78350f;
-            color: #fbbf24;
-        }
+		.status-badge.compiling {
+			background: #78350f;
+			color: #fbbf24;
+		}
 
-        /* Custom HTML/CSS Tooltip (Positioned below the badge to prevent page overflow) */
-        .status-tooltip {
-            opacity: 0;
-            visibility: hidden;
-            position: absolute;
-            top: calc(100% + 8px);
-            /* Positioned cleanly beneath the badge */
-            right: 0;
-            background-color: #0b1329;
-            border: 1px solid var(--border);
-            color: #e2e8f0;
-            padding: 12px;
-            border-radius: 6px;
-            font-family: 'Cascadia Code', 'Fira Code', Consolas, Monaco, monospace;
-            font-size: 0.75rem;
-            line-height: 1.5;
-            white-space: pre;
-            z-index: 1000;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
-            pointer-events: none;
-            transition: opacity 0.2s ease, visibility 0.2s ease;
-        }
+		/* Custom HTML/CSS Tooltip (Positioned below the badge to prevent page overflow) */
+		.status-tooltip {
+			opacity: 0;
+			visibility: hidden;
+			position: absolute;
+			top: calc(100% + 8px);
+			/* Positioned cleanly beneath the badge */
+			right: 0;
+			background-color: #0b1329;
+			border: 1px solid var(--border);
+			color: #e2e8f0;
+			padding: 12px;
+			border-radius: 6px;
+			font-family: 'Cascadia Code', 'Fira Code', Consolas, Monaco, monospace;
+			font-size: 0.75rem;
+			line-height: 1.5;
+			white-space: pre;
+			z-index: 1000;
+			box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
+			pointer-events: none;
+			transition: opacity 0.2s ease, visibility 0.2s ease;
+		}
 
-        /* Reveal the tooltip exclusively when hovering a 'Ready' status badge */
-        .status-container:hover .status-badge.ready~.status-tooltip {
-            opacity: 1;
-            visibility: visible;
-        }
+		/* Reveal the tooltip exclusively when hovering a 'Ready' status badge */
+		.status-container:hover .status-badge.ready~.status-tooltip {
+			opacity: 1;
+			visibility: visible;
+		}
 
-        main {
-            flex: 1;
-            display: grid;
-            grid-template-columns: 1fr 10px 1fr;
-            padding: 12px;
-            overflow: hidden;
-            box-sizing: border-box;
-        }
+		main {
+			flex: 1;
+			display: grid;
+			grid-template-columns: 1fr 10px 1fr;
+			padding: 12px;
+			overflow: hidden;
+			box-sizing: border-box;
+		}
 
-        .pane {
-            background: var(--panel-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+		.pane {
+			background: var(--panel-bg);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+		}
 
-        /* Resizer Drag Handle Styling */
-        .resizer {
-            width: 10px;
-            cursor: col-resize;
-            background: transparent;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-            user-select: none;
-        }
+		/* Resizer Drag Handle Styling */
+		.resizer {
+			width: 10px;
+			cursor: col-resize;
+			background: transparent;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 10;
+			user-select: none;
+		}
 
-        .resizer::after {
-            content: "";
-            width: 2px;
-            height: 40px;
-            background-color: var(--border);
-            border-radius: 1px;
-            transition: background-color 0.2s ease, height 0.2s ease, width 0.2s ease;
-        }
+		.resizer::after {
+			content: "";
+			width: 2px;
+			height: 40px;
+			background-color: var(--border);
+			border-radius: 1px;
+			transition: background-color 0.2s ease, height 0.2s ease, width 0.2s ease;
+		}
 
-        .resizer:hover::after,
-        .resizer.dragging::after {
-            background-color: var(--accent);
-            height: 100%;
-        }
+		.resizer:hover::after,
+		.resizer.dragging::after {
+			background-color: var(--accent);
+			height: 100%;
+		}
 
-        .pane-header {
-            background: rgba(15, 23, 42, 0.4);
-            padding: 8px 16px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+		.pane-header {
+			background: rgba(15, 23, 42, 0.4);
+			padding: 8px 16px;
+			font-size: 0.85rem;
+			font-weight: 600;
+			color: var(--text-muted);
+			border-bottom: 1px solid var(--border);
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
 
-        /* Editor Action Controls */
-        .editor-actions {
-            display: flex;
-            gap: 8px;
-        }
+		/* Editor Action Controls */
+		.editor-actions {
+			display: flex;
+			gap: 8px;
+		}
 
-        .icon-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            padding: 4px;
-            cursor: pointer;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-        }
+		.icon-btn {
+			background: transparent;
+			border: none;
+			color: var(--text-muted);
+			padding: 4px;
+			cursor: pointer;
+			border-radius: 4px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: all 0.2s ease;
+		}
 
-        .icon-btn:hover {
-            color: var(--accent);
-            background: rgba(56, 189, 248, 0.1);
-        }
+		.icon-btn:hover {
+			color: var(--accent);
+			background: rgba(56, 189, 248, 0.1);
+		}
 
-        .icon-btn svg {
-            width: 16px;
-            height: 16px;
-        }
+		.icon-btn svg {
+			width: 16px;
+			height: 16px;
+		}
 
-        #code {
-            flex: 1;
-            width: 100%;
-            min-height: 0;
-        }
+		#code {
+			flex: 1;
+			width: 100%;
+			min-height: 0;
+		}
 
-        pre {
-            flex: 1;
-            background: var(--console-bg);
-            color: #38bdf8;
-            font-family: 'Cascadia Code', 'Fira Code', Consolas, Monaco, monospace;
-            font-size: 13px;
-            line-height: 1.5;
-            padding: 16px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-            -webkit-overflow-scrolling: touch;
-        }
+		pre {
+			flex: 1;
+			background: var(--console-bg);
+			color: #38bdf8;
+			font-family: 'Cascadia Code', 'Fira Code', Consolas, Monaco, monospace;
+			font-size: 13px;
+			line-height: 1.5;
+			padding: 16px;
+			overflow-y: auto;
+			white-space: pre-wrap;
+			word-break: break-all;
+			-webkit-overflow-scrolling: touch;
+		}
 
-        #canvasContainer {
-            display: none;
-            background: #090d16;
-            border-bottom: 1px solid var(--border);
-            resize: vertical;
-            overflow: hidden;
-            height: 240px;
-            min-height: 80px;
-            max-height: 95%;
-        }
+		#canvasContainer {
+			display: none;
+			background: #090d16;
+			border-bottom: 1px solid var(--border);
+			resize: vertical;
+			overflow: hidden;
+			height: 240px;
+			min-height: 80px;
+			max-height: 95%;
+		}
 
-        @media (max-width: 768px) {
-            #canvasContainer {
-                height: 140px;
-            }
-        }
+		@media (max-width: 768px) {
+			#canvasContainer {
+				height: 140px;
+			}
+		}
 
-        @media (max-width: 768px) {
-            #canvasContainer {
-                height: 100px;
-            }
-        }
+		@media (max-width: 768px) {
+			#canvasContainer {
+				height: 100px;
+			}
+		}
 
-        /* Clickable Compiler Links inside Output Console */
-        .console-link:hover {
-            text-decoration: underline !important;
-            color: #0284c7 !important;
-        }
+		/* Clickable Compiler Links inside Output Console */
+		.console-link:hover {
+			text-decoration: underline !important;
+			color: #0284c7 !important;
+		}
 
-        /* Responsive Mobile Layout Stack Rules */
-        @media (max-width: 768px) {
-            main {
-                grid-template-columns: 1fr !important;
-                grid-template-rows: 1fr 10px 1fr;
-            }
+		/* Responsive Mobile Layout Stack Rules */
+		@media (max-width: 768px) {
+			main {
+				grid-template-columns: 1fr !important;
+				grid-template-rows: 1fr 10px 1fr;
+			}
 
-            .resizer {
-                width: 100%;
-                height: 10px;
-                cursor: row-resize;
-            }
+			.resizer {
+				width: 100%;
+				height: 10px;
+				cursor: row-resize;
+			}
 
-            .resizer::after {
-                width: 40px;
-                height: 2px;
-            }
+			.resizer::after {
+				width: 40px;
+				height: 2px;
+			}
 
-            .resizer:hover::after,
-            .resizer.dragging::after {
-                width: 100%;
-                height: 2.2px;
-            }
-        }
+			.resizer:hover::after,
+			.resizer.dragging::after {
+				width: 100%;
+				height: 2.2px;
+			}
+		}
 
-        @media (max-width: 480px) {
-            header {
-                padding: 12px;
-                flex-direction: column;
-                gap: 12px;
-                align-items: stretch;
-            }
+		@media (max-width: 480px) {
+			header {
+				padding: 12px;
+				flex-direction: column;
+				gap: 12px;
+				align-items: stretch;
+			}
 
-            .controls {
-                width: 100%;
-                justify-content: space-between;
-            }
+			.controls {
+				width: 100%;
+				justify-content: space-between;
+			}
 
-            select {
-                flex: 1;
-                max-width: 150px;
-            }
-        }
-    </style>
+			select {
+				flex: 1;
+				max-width: 150px;
+			}
+		}
+	</style>
 </head>
 
 <body>
 
-    <header>
-        <h1>
-            <span>C3 Playground</span>
-            <a href="https://c3-lang.org/standard-library/docs.html" target="_blank" class="docs-link"
-                title="Open C3 Standard Library Documentation">
-                <span>Stdlib Docs</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                    <polyline points="15 3 21 3 21 9"></polyline>
-                    <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-            </a>
-        </h1>
-        <div class="controls">
-            <select id="exampleSelect">
-                <option value="" disabled selected hidden>Examples...</option>
-            </select>
+	<header>
+		<h1>
+			<span>C3 Playground</span>
+			<a href="https://c3-lang.org/standard-library/docs.html" target="_blank" class="docs-link"
+				title="Open C3 Standard Library Documentation">
+				<span>Stdlib Docs</span>
+				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+					stroke-linecap="round" stroke-linejoin="round">
+					<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+					<polyline points="15 3 21 3 21 9"></polyline>
+					<line x1="10" y1="14" x2="21" y2="3"></line>
+				</svg>
+			</a>
+		</h1>
+		<div class="controls">
+			<select id="exampleSelect">
+				<option value="" disabled selected hidden>Examples...</option>
+			</select>
 
-            <div class="status-container">
-                <span id="status" class="status-badge">Loading...</span>
-                <pre id="statusTooltip" class="status-tooltip">Fetching version...</pre>
-            </div>
+			<div class="status-container">
+				<span id="status" class="status-badge">Loading...</span>
+				<pre id="statusTooltip" class="status-tooltip">Fetching version...</pre>
+			</div>
 
-            <button id="compileBtn" class="primary" title="Compile & Run (Ctrl+Enter)" disabled>Compile & Run</button>
-        </div>
-    </header>
+			<button id="compileBtn" class="primary" title="Compile & Run (Ctrl+Enter)" disabled>Compile & Run</button>
+		</div>
+	</header>
 
-    <main id="mainLayout">
-        <div class="pane">
-            <div class="pane-header">
-                <span>SOURCE CODE (C3)</span>
-                <div class="editor-actions">
-                    <button id="shareBtn" title="Share Code" class="icon-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="18" cy="5" r="3"></circle>
-                            <circle cx="6" cy="12" r="3"></circle>
-                            <circle cx="18" cy="19" r="3"></circle>
-                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                        </svg>
-                    </button>
-                    <button id="copyBtn" title="Copy Code" class="icon-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                    </button>
-                    <button id="saveBtn" title="Save File (Ctrl+S)" class="icon-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                            <polyline points="7 3 7 8 15 8"></polyline>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            <div id="code"></div>
-        </div>
+	<main id="mainLayout">
+		<div class="pane">
+			<div class="pane-header">
+				<span>SOURCE CODE (C3)</span>
+				<div class="editor-actions">
+					<button id="shareBtn" title="Share Code" class="icon-btn">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							stroke-linecap="round" stroke-linejoin="round">
+							<circle cx="18" cy="5" r="3"></circle>
+							<circle cx="6" cy="12" r="3"></circle>
+							<circle cx="18" cy="19" r="3"></circle>
+							<line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+							<line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+						</svg>
+					</button>
+					<button id="copyBtn" title="Copy Code" class="icon-btn">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							stroke-linecap="round" stroke-linejoin="round">
+							<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+							<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+						</svg>
+					</button>
+					<button id="saveBtn" title="Save File (Ctrl+S)" class="icon-btn">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+							stroke-linecap="round" stroke-linejoin="round">
+							<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+							<polyline points="17 21 17 13 7 13 7 21"></polyline>
+							<polyline points="7 3 7 8 15 8"></polyline>
+						</svg>
+					</button>
+				</div>
+			</div>
+			<div id="code"></div>
+		</div>
 
-        <div class="resizer" id="resizer"></div>
+		<div class="resizer" id="resizer"></div>
 
-        <div class="pane">
-            <div class="pane-header">
-                <span>CONSOLE OUTPUT</span>
-                <button id="clearBtn" title="Clear Console" class="icon-btn" aria-label="Clear Console">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                    </svg>
-                </button>
-            </div>
-            <div id="canvasContainer">
-                <div style="display: flex; width: 100%; height: 100%; padding: 6px; align-items: center; justify-content: center; box-sizing: border-box;">
-                    <canvas id="canvas" style="background: #000; border: 1px solid var(--border); image-rendering: pixelated; width: 100%; height: 100%; object-fit: contain;"></canvas>
-                </div>
-            </div>
-            <pre id="output"></pre>
-        </div>
-    </main>
+		<div class="pane">
+			<div class="pane-header">
+				<span>CONSOLE OUTPUT</span>
+				<button id="clearBtn" title="Clear Console" class="icon-btn" aria-label="Clear Console">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+						stroke-linejoin="round">
+						<polyline points="3 6 5 6 21 6"></polyline>
+						<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+						<line x1="10" y1="11" x2="10" y2="17"></line>
+						<line x1="14" y1="11" x2="14" y2="17"></line>
+					</svg>
+				</button>
+			</div>
+			<div id="canvasContainer">
+				<div style="display: flex; width: 100%; height: 100%; padding: 6px; align-items: center; justify-content: center; box-sizing: border-box;">
+					<canvas id="canvas" style="background: #000; border: 1px solid var(--border); image-rendering: pixelated; width: 100%; height: 100%; object-fit: contain;"></canvas>
+				</div>
+			</div>
+			<pre id="output"></pre>
+		</div>
+	</main>
 
-    <!-- Raw C3 Source Code Examples -->
-    <script type="text/c3" data-name="Hello World">module main;
+	<!-- Raw C3 Source Code Examples -->
+	<script type="text/c3" data-name="Hello World">module main;
 import std;
 
 fn void main()
 {
-    String[] greetings = {
-        "Hello, world!",
-        "¡Hola Mundo!",
-        "Γειά σου Κόσμε!",
-        "Привет, мир!",
-        "こんにちは世界！",
-        "你好世界！",
-        "नमस्ते दुनिया!",
-        "👋🌎!"
-    };
-    foreach (greeting : greetings)
-    {
-        io::printn(greeting);
-    }
+	String[] greetings = {
+		"Hello, world!",
+		"¡Hola Mundo!",
+		"Γειά σου Κόσμε!",
+		"Привет, мир!",
+		"こんにちは世界！",
+		"你好世界！",
+		"नमस्ते दुनिया!",
+		"👋🌎!"
+	};
+	foreach (greeting : greetings)
+	{
+		io::printn(greeting);
+	}
 }
 </script>
 
-    <script type="text/c3" data-name="Slices & Defer">module main;
+	<script type="text/c3" data-name="Slices & Defer">module main;
 import std;
 
 fn void heap_example()
 {
-    io::printn("--- 1. Manual Allocation with 'defer' ---");
-    // mem::new_array allocates a zero-initialized array (slice) on the heap.
-    // Unlike standard C, this returns a safe, sized slice (int[]) rather than a raw pointer.
-    int[] array = mem::new_array(int, 5);
+	io::printn("--- 1. Manual Allocation with 'defer' ---");
+	// mem::new_array allocates a zero-initialized array (slice) on the heap.
+	// Unlike standard C, this returns a safe, sized slice (int[]) rather than a raw pointer.
+	int[] array = mem::new_array(int, 5);
 
-    // 'defer' guarantees memory cleanup at scope exit, preventing leaks without RAII overhead
-    defer mem::free(array);
+	// 'defer' guarantees memory cleanup at scope exit, preventing leaks without RAII overhead
+	defer mem::free(array);
 
-    for (int i = 0; i < array.len; i++)
-    {
-        array[i] = (i + 1) * 10;
-    }
+	for (int i = 0; i < array.len; i++)
+	{
+		array[i] = (i + 1) * 10;
+	}
 
-    foreach (idx, val : array) // foreach loops work naturally on slices
-    {
-        io::printfn("array[%d] = %d", idx, val);
-    }
+	foreach (idx, val : array) // foreach loops work naturally on slices
+	{
+		io::printfn("array[%d] = %d", idx, val);
+	}
 }
 
 fn void temp_example()
 {
-    io::printn("\n--- 2. Temporary Arena Allocation ---");
-    // The @pool macro sets up a temporary allocator scope.
-    // All temporary allocations within this block are automatically freed on block exit.
-    @pool()
-    {
-        double[] temp_vals = mem::temp_array(double, 4); // Allocate a temporary double array using the arena allocator
-        temp_vals[0] = 3.14;
-        temp_vals[1] = 1.61;
-        temp_vals[2] = 2.71;
-        temp_vals[3] = 1.41;
+	io::printn("\n--- 2. Temporary Arena Allocation ---");
+	// The @pool macro sets up a temporary allocator scope.
+	// All temporary allocations within this block are automatically freed on block exit.
+	@pool()
+	{
+		double[] temp_vals = mem::temp_array(double, 4); // Allocate a temporary double array using the arena allocator
+		temp_vals[0] = 3.14;
+		temp_vals[1] = 1.61;
+		temp_vals[2] = 2.71;
+		temp_vals[3] = 1.41;
 
-        double[] sub_slice = temp_vals[1:2]; // Create a sub-slice on the fly using slice syntax [start:length]
+		double[] sub_slice = temp_vals[1:2]; // Create a sub-slice on the fly using slice syntax [start:length]
 
-        foreach (idx, val : sub_slice)
-        {
-            io::printfn("sub_slice[%d] = %.2f", idx, val);
-        }
+		foreach (idx, val : sub_slice)
+		{
+			io::printfn("sub_slice[%d] = %.2f", idx, val);
+		}
 
-        io::printn("Leaving @pool scope... (all temp memory is automatically reclaimed)");
-    };
+		io::printn("Leaving @pool scope... (all temp memory is automatically reclaimed)");
+	};
 }
 
 fn void main()
 {
-    heap_example();
-    temp_example();
+	heap_example();
+	temp_example();
 }
 </script>
 
-    <script type="text/c3" data-name="Reflection">module main;
+	<script type="text/c3" data-name="Reflection">module main;
 import std;
 
 struct Point {
-    int x;
-    int y;
-    double depth;
+	int x;
+	int y;
+	double depth;
 }
 
 // Compile-time macro to introspect struct definitions
 macro print_fields($Type) {
-    $foreach $field : $Type::members:
-        // Use dot notation (.) to access compile-time member properties
-        io::printfn("Field '%s' | Offset: %d bytes | Size: %d bytes",
-            $field.name, $field.offset, $field.size);
-    $endforeach
+	$foreach $field : $Type::members:
+		// Use dot notation (.) to access compile-time member properties
+		io::printfn("Field '%s' | Offset: %d bytes | Size: %d bytes",
+			$field.name, $field.offset, $field.size);
+	$endforeach
 }
 
 fn int main()
 {
-    io::printn("--- 1. Type Metadata ---");
-    // We can query compile-time type properties using the :: syntax
-    io::printfn("Name:        %s", Point::name);
-    io::printfn("Total Size:  %d bytes", Point::size);
-    io::printfn("Is Struct?   %s", Point::kind == STRUCT ? "Yes" : "No");
+	io::printn("--- 1. Type Metadata ---");
+	// We can query compile-time type properties using the :: syntax
+	io::printfn("Name:        %s", Point::name);
+	io::printfn("Total Size:  %d bytes", Point::size);
+	io::printfn("Is Struct?   %s", Point::kind == STRUCT ? "Yes" : "No");
 
-    io::printn("\n--- 2. Struct Fields Reflection ---");
-    // Generate code at compile-time that prints the layout
-    print_fields(Point);
+	io::printn("\n--- 2. Struct Fields Reflection ---");
+	// Generate code at compile-time that prints the layout
+	print_fields(Point);
 
-    return 0;
+	return 0;
 }
 </script>
 
-    <script type="text/c3" data-name="JSON Pretty Print">
+	<script type="text/c3" data-name="JSON Pretty Print">
 module main;
 import std;
 
 fn int main()
 {
-    String file = `
+	String file = `
 {"id":12345,"name":"Alice Johnson","email":"alice@example.com","active":true,"roles":["admin","editor"],"profile":{"city":"Buenos Aires","country":"Argentina"},"lastLogin":"2026-08-01T12:34:56Z","preferences":{"theme":"dark","notifications":true}}
 `;
 
-    Object*? json_object = json::tparse(file);
-    if (catch err = json_object)
-    {
-        io::printfn("Error: Failed to parse JSON (%s)", err);
-        return 1;
-    }
+	Object*? json_object = json::tparse(file);
+	if (catch err = json_object)
+	{
+		io::printfn("Error: Failed to parse JSON (%s)", err);
+		return 1;
+	}
 
-    if (catch err = json::marshal_to(io::stdout(), json_object, SPACE_4))
-    {
-        io::printfn("Error: Failed to write pretty printed JSON (%s)", err);
-        return 1;
-    }
+	if (catch err = json::marshal_to(io::stdout(), json_object, SPACE_4))
+	{
+		io::printfn("Error: Failed to write pretty printed JSON (%s)", err);
+		return 1;
+	}
 
-    io::printn();
+	io::printn();
 
-    return 0;
+	return 0;
 }
 </script>
 
-    <script type="text/c3" data-name="SIMD Vectors">module main;
+	<script type="text/c3" data-name="SIMD Vectors">module main;
 import std;
 
 fn void main()
 {
-    // C3 natively supports hardware-backed SIMD vector types using [<>] syntax
-    float[<3>] position = { 1.0, 2.0, 3.0 };
-    float[<3>] velocity = { 0.5, -1.0, 1.5 };
+	// C3 natively supports hardware-backed SIMD vector types using [<>] syntax
+	float[<3>] position = { 1.0, 2.0, 3.0 };
+	float[<3>] velocity = { 0.5, -1.0, 1.5 };
 
-    io::printn("--- 1. Vector Arithmetic & Dot Methods ---");
-    // Vector arithmetic is performed elementwise out-of-the-box
-    float[<3>] next_pos = position + velocity * 2.0;
-    io::printfn("Initial Position:  [%f, %f, %f]", position.x, position.y, position.z);
-    io::printfn("Velocity:          [%f, %f, %f]", velocity.x, velocity.y, velocity.z);
-    io::printfn("Position + Vel*2:  [%f, %f, %f]", next_pos.x, next_pos.y, next_pos.z);
+	io::printn("--- 1. Vector Arithmetic & Dot Methods ---");
+	// Vector arithmetic is performed elementwise out-of-the-box
+	float[<3>] next_pos = position + velocity * 2.0;
+	io::printfn("Initial Position:  [%f, %f, %f]", position.x, position.y, position.z);
+	io::printfn("Velocity:          [%f, %f, %f]", velocity.x, velocity.y, velocity.z);
+	io::printfn("Position + Vel*2:  [%f, %f, %f]", next_pos.x, next_pos.y, next_pos.z);
 
-    // Standard vector operations via dot-method syntax
-    float len = velocity.length();
-    float[<3>] normalized = velocity.normalize();
-    io::printfn("Velocity Length:   %f", len);
-    io::printfn("Velocity Norm:     [%f, %f, %f]", normalized.x, normalized.y, normalized.z);
+	// Standard vector operations via dot-method syntax
+	float len = velocity.length();
+	float[<3>] normalized = velocity.normalize();
+	io::printfn("Velocity Length:   %f", len);
+	io::printfn("Velocity Norm:     [%f, %f, %f]", normalized.x, normalized.y, normalized.z);
 
-    io::printn("\n--- 2. Vector Swizzling & Extraction ---");
-    // Swizzling allows extracting or rearranging components easily
-    float[<2>] horizontal_vel = velocity.xy;
-    float[<3>] reversed_pos = position.zyx;
-    io::printfn("Horizontal Vel (xy): [%f, %f]", horizontal_vel.x, horizontal_vel.y);
-    io::printfn("Reversed Pos (zyx):  [%f, %f, %f]", reversed_pos.x, reversed_pos.y, reversed_pos.z);
+	io::printn("\n--- 2. Vector Swizzling & Extraction ---");
+	// Swizzling allows extracting or rearranging components easily
+	float[<2>] horizontal_vel = velocity.xy;
+	float[<3>] reversed_pos = position.zyx;
+	io::printfn("Horizontal Vel (xy): [%f, %f]", horizontal_vel.x, horizontal_vel.y);
+	io::printfn("Reversed Pos (zyx):  [%f, %f, %f]", reversed_pos.x, reversed_pos.y, reversed_pos.z);
 
-    io::printn("\n--- 3. Dot Product & Reflection ---");
-    // Physics simulation: reflecting an incident vector off a normal
-    float[<3>] incident = { 1.0, -1.0, 0.0 };
-    float[<3>] normal = { 0.0, 1.0, 0.0 }; // Pointing straight up
+	io::printn("\n--- 3. Dot Product & Reflection ---");
+	// Physics simulation: reflecting an incident vector off a normal
+	float[<3>] incident = { 1.0, -1.0, 0.0 };
+	float[<3>] normal = { 0.0, 1.0, 0.0 }; // Pointing straight up
 
-    float[<3>] reflected = incident.reflect(normal);
-    float dot_prod = incident.dot(normal);
+	float[<3>] reflected = incident.reflect(normal);
+	float dot_prod = incident.dot(normal);
 
-    io::printfn("Incident:    [%f, %f, %f]", incident.x, incident.y, incident.z);
-    io::printfn("Normal:      [%f, %f, %f]", normal.x, normal.y, normal.z);
-    io::printfn("Dot Product: %f", dot_prod);
-    io::printfn("Reflected:   [%f, %f, %f]", reflected.x, reflected.y, reflected.z);
+	io::printfn("Incident:    [%f, %f, %f]", incident.x, incident.y, incident.z);
+	io::printfn("Normal:      [%f, %f, %f]", normal.x, normal.y, normal.z);
+	io::printfn("Dot Product: %f", dot_prod);
+	io::printfn("Reflected:   [%f, %f, %f]", reflected.x, reflected.y, reflected.z);
 }
 </script>
 
-    <script type="text/c3" data-name="Error Handling">module main;
+	<script type="text/c3" data-name="Error Handling">module main;
 import std;
 
 faultdef INVALID_CHAR, OUT_OF_RANGE; // Custom faults are declared globally
 
 fn int? parse_digit(char c) // This function returns an Optional int (either an int or a fault)
 {
-    if (c < '0' || c > '9') {
-        return INVALID_CHAR~; // Use '~' to return a fault as an empty optional
-    }
-    return (int)(c - '0');
+	if (c < '0' || c > '9') {
+		return INVALID_CHAR~; // Use '~' to return a fault as an empty optional
+	}
+	return (int)(c - '0');
 }
 
 fn int? parse_and_double(char c)
 {
-    int digit = parse_digit(c)!; // The '!' operator propagates/bubbles up the fault if parse_digit fails
-    return (digit > 4) ? OUT_OF_RANGE~! : digit * 2;
+	int digit = parse_digit(c)!; // The '!' operator propagates/bubbles up the fault if parse_digit fails
+	return (digit > 4) ? OUT_OF_RANGE~! : digit * 2;
 }
 
 fn void main()
 {
-    char[3] test_chars = { '3', '7', 'a' };
+	char[3] test_chars = { '3', '7', 'a' };
 
-    foreach (c : test_chars) {
-        int? val = parse_and_double(c);
+	foreach (c : test_chars) {
+		int? val = parse_and_double(c);
 
-        // Unwrapping the optional cleanly with 'if (catch ...)'
-        if (catch err = val)
-        {
-            io::printfn("Character '%c': Failed with error %s", c, err);
-        }
-        else
-        {
-            // Inside this block, 'val' is automatically unwrapped to a standard 'int'
-            io::printfn("Character '%c': Success, doubled value is %d", c, val);
-        }
-    }
+		// Unwrapping the optional cleanly with 'if (catch ...)'
+		if (catch err = val)
+		{
+			io::printfn("Character '%c': Failed with error %s", c, err);
+		}
+		else
+		{
+			// Inside this block, 'val' is automatically unwrapped to a standard 'int'
+			io::printfn("Character '%c': Success, doubled value is %d", c, val);
+		}
+	}
 }
 </script>
 
-    <script type="text/c3" data-name="Bitstructs">module main;
+	<script type="text/c3" data-name="Bitstructs">module main;
 import std;
 
 // Bitstructs map fields into a specific backing integer layout
 bitstruct CpuStatus : ushort {
-    bool carry     : 0;
-    bool zero      : 1;
-    bool interrupt : 2;
-    uint reserved  : 3..7;
-    uint mode      : 8..11;
+	bool carry     : 0;
+	bool zero      : 1;
+	bool interrupt : 2;
+	uint reserved  : 3..7;
+	uint mode      : 8..11;
 }
 
 fn int main() {
-    // Designated initialization
-    CpuStatus status = {
-        .carry = true,
-        .zero = false,
-        .interrupt = true,
-        .reserved = 15,
-        .mode = 9
-    };
+	// Designated initialization
+	CpuStatus status = {
+		.carry = true,
+		.zero = false,
+		.interrupt = true,
+		.reserved = 15,
+		.mode = 9
+	};
 
-    io::printn("--- 1. Reading Bitstruct Fields ---");
-    io::printfn("Carry Flag:     %s", status.carry);
-    io::printfn("Zero Flag:      %s", status.zero);
-    io::printfn("Interrupt Flag: %s", status.interrupt);
-    io::printfn("Reserved Bits:  %d", status.reserved);
-    io::printfn("Processor Mode: %d", status.mode);
+	io::printn("--- 1. Reading Bitstruct Fields ---");
+	io::printfn("Carry Flag:     %s", status.carry);
+	io::printfn("Zero Flag:      %s", status.zero);
+	io::printfn("Interrupt Flag: %s", status.interrupt);
+	io::printfn("Reserved Bits:  %d", status.reserved);
+	io::printfn("Processor Mode: %d", status.mode);
 
-    io::printn("\n--- 2. Casting & Inspecting Backing Type ---");
-    ushort raw_value = (ushort)status;
-    io::printfn("Raw ushort (Hex):     0x%04X (Decimal: %d)", raw_value, raw_value);
+	io::printn("\n--- 2. Casting & Inspecting Backing Type ---");
+	ushort raw_value = (ushort)status;
+	io::printfn("Raw ushort (Hex):     0x%04X (Decimal: %d)", raw_value, raw_value);
 
-    // C3 natively supports binary formatting via %b (including zero-padding like %016b)
-    io::printfn("Raw ushort (Binary):  %016b", raw_value);
-    io::printn("                      Mode Resrvd Flags");
+	// C3 natively supports binary formatting via %b (including zero-padding like %016b)
+	io::printfn("Raw ushort (Binary):  %016b", raw_value);
+	io::printn("                      Mode Resrvd Flags");
 
-    io::printn("\n--- 3. Mutating Fields ---");
-    status.carry = false;
-    status.mode = 12;
+	io::printn("\n--- 3. Mutating Fields ---");
+	status.carry = false;
+	status.mode = 12;
 
-    ushort mutated_value = (ushort)status;
-    io::printfn("New ushort (Hex):     0x%04X", mutated_value);
-    io::printfn("New ushort (Binary):  %016b", mutated_value);
+	ushort mutated_value = (ushort)status;
+	io::printfn("New ushort (Hex):     0x%04X", mutated_value);
+	io::printfn("New ushort (Binary):  %016b", mutated_value);
 
-    return 0;
+	return 0;
 }</script>
 
-    <script type="text/c3" data-name="Brainfuck interpreter">module brainfk;
+	<script type="text/c3" data-name="Brainfuck interpreter">module brainfk;
 import std;
 
 fn void main()
 {
-    String program = `
-    ++++[>+++++<-]>[<+++++>-]+<+[
-        >[>+>+<<-]++>>[<<+>>-]>>>[-]++>[-]+
-        >>>+[[-]++++++>>>]<<<[[<++++++++<++>>-]+<.<[>----<-]<]
-        <<[>>>>>[>>>[-]+++++++++<[>-<-]+++++++++>[-[<->-]+[<<<]]<[>+<-]>]<<-]<<-
-    ]`;
-    brainf(program)!!;
+	String program = `
+	++++[>+++++<-]>[<+++++>-]+<+[
+		>[>+>+<<-]++>>[<<+>>-]>>>[-]++>[-]+
+		>>>+[[-]++++++>>>]<<<[[<++++++++<++>>-]+<.<[>----<-]<]
+		<<[>>>>>[>>>[-]+++++++++<[>-<-]+++++++++>[-[<->-]+[<<<]]<[>+<-]>]<<-]<<-
+	]`;
+	brainf(program)!!;
 }
 
 const BF_MEM = 30000;
@@ -740,71 +740,71 @@ faultdef INTEPRET_FAILED;
 
 fn void? print_error_type_at(sz pos, String err)
 {
-    io::printfn("Error at %s: %s", pos, err);
-    return INTEPRET_FAILED~;
+	io::printfn("Error at %s: %s", pos, err);
+	return INTEPRET_FAILED~;
 }
 
 fn void? brainf(String program)
 {
-    sz sp = 0;
-    sz mem = 0;
-    while (sp < program.len)
-    {
-        char c = program[sp++];
-        switch (c)
-        {
-            case '<':
-                if (!mem) return print_error_type_at(sp, "Memory underflow");
-                mem--;
-            case '>':
-                if (mem == BF_MEM - 1) return print_error_type_at(sp, "Memory overflow");
-                mem++;
-            case '+':
-                memory[mem]++;
-            case '-':
-                memory[mem]--;
-            case '.':
-                io::putchar(memory[mem]);
-                io::stdout().flush()!;
-            case ',':
-                memory[mem] = io::stdin().read_byte()!!;
-            case '[':
-                sz indent = 1;
-                if (memory[mem]) continue;
-                sz start = sp - 1;
-                while (indent)
-                {
-                    if (sp == program.len) return print_error_type_at(start, "No matching ']'");
-                    switch (program[sp++])
-                    {
-                        case ']': indent--;
-                        case '[': indent++;
-                        default: break;
-                    }
-                }
-            case ']':
-                if (!memory[mem]) continue;
-                sz start = sp--;
-                sz indent = 1;
-                while (indent)
-                {
-                    if (!sp) return print_error_type_at(start, "No matching '['");
-                    switch (program[--sp])
-                    {
-                        case ']': indent++;
-                        case '[': indent--;
-                        default: break;
-                    }
-                }
-                sp++;
-            default:
-                break;
-        }
-    }
+	sz sp = 0;
+	sz mem = 0;
+	while (sp < program.len)
+	{
+		char c = program[sp++];
+		switch (c)
+		{
+			case '<':
+				if (!mem) return print_error_type_at(sp, "Memory underflow");
+				mem--;
+			case '>':
+				if (mem == BF_MEM - 1) return print_error_type_at(sp, "Memory overflow");
+				mem++;
+			case '+':
+				memory[mem]++;
+			case '-':
+				memory[mem]--;
+			case '.':
+				io::putchar(memory[mem]);
+				io::stdout().flush()!;
+			case ',':
+				memory[mem] = io::stdin().read_byte()!!;
+			case '[':
+				sz indent = 1;
+				if (memory[mem]) continue;
+				sz start = sp - 1;
+				while (indent)
+				{
+					if (sp == program.len) return print_error_type_at(start, "No matching ']'");
+					switch (program[sp++])
+					{
+						case ']': indent--;
+						case '[': indent++;
+						default: break;
+					}
+				}
+			case ']':
+				if (!memory[mem]) continue;
+				sz start = sp--;
+				sz indent = 1;
+				while (indent)
+				{
+					if (!sp) return print_error_type_at(start, "No matching '['");
+					switch (program[--sp])
+					{
+						case ']': indent++;
+						case '[': indent--;
+						default: break;
+					}
+				}
+				sp++;
+			default:
+				break;
+		}
+	}
 }
 </script>
 
-    <script type="text/c3" data-name="Psychedelic Vortex Canvas">module main;
+	<script type="text/c3" data-name="Psychedelic Vortex Canvas">module main;
 import std;
 
 const int WIDTH  = 320;
@@ -821,1641 +821,1641 @@ fn Rgba* get_pixels() @export("get_pixels") => (Rgba*)&pixels;
 
 fn void update() @export("update")
 {
-    frame_count++;
-    for (int y = 0; y < HEIGHT; y++)
-    {
-        for (int x = 0; x < WIDTH; x++)
-        {
-            Vec2 pos = { x, y } - CENTER;
-            float d = pos.length();
+	frame_count++;
+	for (int y = 0; y < HEIGHT; y++)
+	{
+		for (int x = 0; x < WIDTH; x++)
+		{
+			Vec2 pos = { x, y } - CENTER;
+			float d = pos.length();
 
-            Vec4 waves = {
-                math::sin(pos.x * 0.05f + frame_count * 0.05f) + math::sin(d * 0.05f),
-                math::cos(pos.y * 0.05f - frame_count * 0.03f) + math::cos(d * 0.05f),
-                math::sin((pos.x + pos.y) * 0.03f + d * 0.04f),
-                2.0f
-            };
+			Vec4 waves = {
+				math::sin(pos.x * 0.05f + frame_count * 0.05f) + math::sin(d * 0.05f),
+				math::cos(pos.y * 0.05f - frame_count * 0.03f) + math::cos(d * 0.05f),
+				math::sin((pos.x + pos.y) * 0.03f + d * 0.04f),
+				2.0f
+			};
 
-            pixels[y][x] = (Rgba)(waves * 63.75f + 127.5f).bgra;
-        }
-    }
+			pixels[y][x] = (Rgba)(waves * 63.75f + 127.5f).bgra;
+		}
+	}
 }
 
 fn int main()
 {
-    io::printn("Psychedelic Vector Vortex Initialized!");
-    io::printn("Rendering with C3 SIMD vectors and standard library math directly in WASM.");
-    return 0;
+	io::printn("Psychedelic Vector Vortex Initialized!");
+	io::printn("Rendering with C3 SIMD vectors and standard library math directly in WASM.");
+	return 0;
 }
 </script>
 
-    <!-- Load Monaco Editor v0.56.0 Loader from jsDelivr -->
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs/loader.js"></script>
-    <script src="build/emscripten_runtime.js"></script>
-    <script>
-        // Detect iOS and iPadOS (including other browsers using WebKit on iOS) and halt execution early.
-        const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-        if (isIOSDevice) {
-            document.body.innerHTML = `
-                <div style="
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    height: 100vh;
-                    background-color: #0f172a;
-                    color: #f8fafc;
-                    font-family: system-ui, -apple-system, sans-serif;
-                    padding: 24px;
-                    text-align: center;
-                    box-sizing: border-box;
-                ">
-                    <img src="https://c3-lang.org/assets/favicon.svg" style="height: 64px; margin-bottom: 24px;" alt="C3 Logo">
-                    <h1 style="color: #38bdf8; font-size: 1.5rem; margin-bottom: 12px; font-weight: 600;">Playground Not Supported on iOS</h1>
-                    <p style="color: #94a3b8; font-size: 0.95rem; max-width: 420px; line-height: 1.6; margin-bottom: 24px;">
-                        The C3 compiler running in WebAssembly requires memory features and resource allocations currently restricted by iOS and iPadOS.
-                    </p>
-                    <p style="color: #64748b; font-size: 0.85rem;">
-                        Please use a desktop browser (such as macOS Safari, Chrome, Firefox, or Edge) to use the C3 Playground.
-                    </p>
-                </div>
-            `;
-            throw new Error("Execution stopped on iOS/iPadOS device.");
-        }
-
-        const outputEl = document.getElementById("output");
-        const statusEl = document.getElementById("status");
-        const statusTooltipEl = document.getElementById("statusTooltip");
-        const compileBtn = document.getElementById("compileBtn");
-        const clearBtn = document.getElementById("clearBtn");
-        const copyBtn = document.getElementById("copyBtn");
-        const saveBtn = document.getElementById("saveBtn");
-        const shareBtn = document.getElementById("shareBtn");
-        const exampleSelect = document.getElementById("exampleSelect");
-        const resizer = document.getElementById("resizer");
-        const mainLayout = document.getElementById("mainLayout");
-
-        // Dynamically discover code examples from script tags using only the data-name attribute
-        const examples = {};
-        document.querySelectorAll('script[type="text/c3"][data-name]').forEach(script => {
-            const label = script.getAttribute("data-name");
-            // Generate a clean slug for storage/keys (like: "Slices & Defer" -> "slices_and_defer")
-            const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-
-            examples[key] = script.textContent.trim();
-
-            // Add option directly to the select dropdown
-            const opt = document.createElement("option");
-            opt.value = key;
-            opt.textContent = label;
-            exampleSelect.appendChild(opt);
-        });
-
-        let editor = null;
-        let compiledCompilerModule = null;
-        let c3cJsText = "";
-        let c3cDataBuffer = null;
-        let c3WorkerJsText = "";
-
-        let docDbSymbols = [];
-        let docgenTimeout = null;
-
-        let rawConsoleOutput = "";
-
-        let isNavigating = false;
-        let isDocgenTaskRunning = false;
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'F12' || e.keyCode === 123) {
-                isNavigating = true;
-                setTimeout(() => { isNavigating = false; }, 400);
-            }
-        }, true);
-
-        window.addEventListener('mousedown', () => {
-            isNavigating = true;
-            setTimeout(() => { isNavigating = false; }, 400);
-        }, true);
-
-        // Native Async GZIP compression via browser's Compression Streams API
-        async function compressCode(str) {
-            const byteArray = new TextEncoder().encode(str);
-            const cs = new CompressionStream("gzip");
-            const writer = cs.writable.getWriter();
-            writer.write(byteArray);
-            writer.close();
-
-            const response = new Response(cs.readable);
-            const arrayBuffer = await response.arrayBuffer();
-
-            const uint8 = new Uint8Array(arrayBuffer);
-            let binary = "";
-            for (let i = 0; i < uint8.byteLength; i++) {
-                binary += String.fromCharCode(uint8[i]);
-            }
-            const base64 = btoa(binary);
-            return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        }
-
-        // Native Async GZIP decompression via browser's Decompression Streams API
-        async function decompressCode(safeBase64) {
-            try {
-                let base64 = safeBase64.replace(/-/g, '+').replace(/_/g, '/');
-                while (base64.length % 4) {
-                    base64 += '=';
-                }
-                const binary = atob(base64);
-                const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) {
-                    bytes[i] = binary.charCodeAt(i);
-                }
-
-                const ds = new DecompressionStream("gzip");
-                const writer = ds.writable.getWriter();
-                writer.write(bytes);
-                writer.close();
-
-                const response = new Response(ds.readable);
-                const arrayBuffer = await response.arrayBuffer();
-                return new TextDecoder().decode(arrayBuffer);
-            } catch (err) {
-                console.error("Native decompression failed or parameters are malformed:", err);
-                return null;
-            }
-        }
-
-        async function getSharedCode() {
-            const hash = window.location.hash;
-            if (hash && hash.startsWith("#code=")) {
-                const encoded = hash.substring(6);
-                return await decompressCode(encoded);
-            }
-            return null;
-        }
-
-        // Layout Memory Preferences (Separate variables for Desktop vs Mobile)
-        let leftPercentage = 50;
-        let topPercentage = 50;
-
-        const savedLeftPercentage = localStorage.getItem("c3_playground_left_percentage");
-        if (savedLeftPercentage !== null) {
-            leftPercentage = parseFloat(savedLeftPercentage);
-        }
-
-        const savedTopPercentage = localStorage.getItem("c3_playground_top_percentage");
-        if (savedTopPercentage !== null) {
-            topPercentage = parseFloat(savedTopPercentage);
-        }
-
-        // Apply grid dimensions based on viewport size
-        function applyLayout() {
-            if (window.innerWidth <= 768) {
-                mainLayout.style.gridTemplateColumns = "1fr";
-                mainLayout.style.gridTemplateRows = `${topPercentage}% 10px 1fr`;
-            } else {
-                mainLayout.style.gridTemplateRows = "1fr";
-                mainLayout.style.gridTemplateColumns = `${leftPercentage}% 10px 1fr`;
-            }
-        }
-
-        // Run application setup
-        applyLayout();
-
-        // Bind resize context to redraw bounds gracefully on viewport rotation
-        window.addEventListener("resize", () => {
-            applyLayout();
-            if (editor) {
-                editor.layout();
-            }
-        });
-
-        function setStatus(text, stateClass) {
-            console.log(`[Status Change] ${text}`);
-            statusEl.textContent = text;
-            statusEl.className = "status-badge " + (stateClass || "");
-        }
-
-        function flattenDocgen(db) {
-            const symbols = [];
-            if (!db || !db.modules) {
-                console.warn("[Flatten Database] Invalid database structural payload received:", db);
-                return symbols;
-            }
-
-            for (const [moduleName, mod] of Object.entries(db.modules)) {
-                const categories = ['functions', 'macros', 'types', 'globals', 'methods', 'constants', 'variables'];
-                for (const cat of categories) {
-                    if (Array.isArray(mod[cat])) {
-                        for (const item of mod[cat]) {
-                            symbols.push({
-                                ...item,
-                                module: moduleName,
-                                category: cat
-                            });
-                        }
-                    }
-                }
-            }
-            console.log(`[Flatten Database] Successfully mapped ${symbols.length} global and standard library symbols.`);
-            return symbols;
-        }
-
-        // Triggers silent, background symbol index compile
-        function queueDocgenUpdate() {
-            if (isDocgenTaskRunning) {
-                console.log("[Diagnostics] Docgen task already running, deferring new request.");
-                clearTimeout(docgenTimeout);
-                docgenTimeout = setTimeout(() => {
-                    console.log("[Diagnostics] Retrying deferred background docgen...");
-                    triggerSilentDocgen();
-                }, 800);
-                return;
-            }
-
-            clearTimeout(docgenTimeout);
-            docgenTimeout = setTimeout(() => {
-                console.log("[Diagnostics] Triggering background compile for symbol documentation...");
-                triggerSilentDocgen();
-            }, 800);
-        }
-
-        function getFullIdentifierAt(model, position) {
-            const lineContent = model.getLineContent(position.lineNumber);
-            const col = position.column;
-            const regex = /[a-zA-Z_0-9]+(?:::[a-zA-Z_0-9]+|(?:\.[a-zA-Z_0-9]+))*/g;
-            let match;
-            while ((match = regex.exec(lineContent)) !== null) {
-                const start = match.index + 1;
-                const end = start + match[0].length;
-                if (col >= start && col <= end) {
-                    return match[0];
-                }
-            }
-            const word = model.getWordAtPosition(position);
-            return word ? word.word : "";
-        }
-
-        function findSymbols(fullId) {
-            if (!docDbSymbols || docDbSymbols.length === 0 || !fullId) {
-                return [];
-            }
-
-            const normalizedId = fullId.replace(/\./g, '::');
-            let matches = docDbSymbols.filter(s => {
-                const uidNorm = s.uid.replace(/\./g, '::');
-                return uidNorm === normalizedId || uidNorm.endsWith('::' + normalizedId);
-            });
-
-            if (matches.length > 0) {
-                return matches;
-            }
-
-            const namePart = fullId.split(/::|\./).pop();
-            const fallbackMatches = docDbSymbols.filter(s => s.name === namePart);
-            return fallbackMatches;
-        }
-
-        // Track Canvas Event loops
-        let activeCanvasLoopId = null;
-
-        // Rebuilds C3 declarations for display context
-        function getSymbolSignature(sym) {
-            if (!sym) return null;
-
-            if (sym.category === 'functions' || sym.category === 'methods' || sym.kind === 'function' || sym.kind === 'method') {
-                const retType = sym.return_type ? sym.return_type.name : 'void';
-                const params = (sym.members || []).map(m => {
-                    const t = m.type ? m.type.name : '';
-                    return t ? `${t} ${m.name}` : m.name;
-                }).join(', ');
-                return `fn ${retType} ${sym.name}(${params})`;
-            }
-
-            if (sym.category === 'macros' || sym.kind === 'macro') {
-                const isAtMacro = sym.is_at_macro;
-                const namePrefix = isAtMacro && !sym.name.startsWith('@') ? '@' : '';
-                const retType = sym.return_type ? sym.return_type.name + ' ' : '';
-                const params = (sym.members || []).map(m => {
-                    const t = m.type ? m.type.name : '';
-                    return t ? `${t} ${m.name}` : m.name;
-                }).join(', ');
-                return `macro ${retType}${namePrefix}${sym.name}(${params})`;
-            }
-
-            if (sym.category === 'variables' || sym.category === 'globals' || sym.category === 'constants' || sym.kind === 'constant' || sym.kind === 'global variable') {
-                const isConst = sym.is_const;
-                const typeName = sym.type ? sym.type.name : '';
-                const prefix = isConst ? 'const ' : 'extern ';
-                const typeStr = typeName ? typeName + ' ' : '';
-                const valStr = sym.value !== undefined && sym.value !== null ? ` = ${sym.value}` : '';
-                return `${prefix}${typeStr}${sym.name}${valStr}`;
-            }
-
-            if (sym.kind === 'union' || sym.kind === 'struct' || sym.kind === 'enum' || sym.kind === 'bitstruct' || sym.kind === 'constdef') {
-                const baseType = sym.base_type ? ` : ${sym.base_type.name}` : '';
-                return `${sym.kind} ${sym.name}${baseType}`;
-            }
-
-            return null;
-        }
-
-        // Maps classification data to IDE symbols
-        function getCompletionItemKind(sym) {
-            const category = sym.category;
-            const kind = sym.kind;
-            if (category === 'functions' || kind === 'function') return monaco.languages.CompletionItemKind.Function;
-            if (category === 'methods' || kind === 'method') return monaco.languages.CompletionItemKind.Method;
-            if (category === 'macros' || kind === 'macro') return monaco.languages.CompletionItemKind.Snippet;
-            if (kind === 'struct' || kind === 'union') return monaco.languages.CompletionItemKind.Struct;
-            if (kind === 'enum') return monaco.languages.CompletionItemKind.Enum;
-            if (kind === 'bitstruct') return monaco.languages.CompletionItemKind.Class;
-            if (category === 'constants' || kind === 'constant') return monaco.languages.CompletionItemKind.Constant;
-            if (category === 'variables' || category === 'globals' || kind === 'global variable') return monaco.languages.CompletionItemKind.Variable;
-            return monaco.languages.CompletionItemKind.Field;
-        }
-
-        // Checks if a symbol lives in a namespace prefix
-        function matchesNamespace(sym, typedNamespace) {
-            if (!sym || !sym.uid) return false;
-
-            const nsLower = typedNamespace.toLowerCase();
-            const uidLower = sym.uid.toLowerCase();
-
-            const parts = uidLower.split('::');
-            if (parts.length <= 1) return false;
-
-            const symNamespace = parts.slice(0, -1).join('::');
-
-            if (symNamespace === nsLower) return true;
-            if (symNamespace.endsWith('::' + nsLower)) return true;
-            if (nsLower.endsWith('::' + symNamespace)) return true;
-
-            return false;
-        }
-
-        // Resolves context-dependent insertion strings
-        function getSymbolCompletionNames(sym) {
-            const uid = sym.uid || '';
-            const isLocal = sym.file && !sym.file.includes('lib/std/') && !sym.file.includes('compiler_rt');
-
-            if (isLocal) {
-                const parts = uid.split('::');
-                const shortName = parts[parts.length - 1];
-                return {
-                    insertText: shortName,
-                    label: shortName,
-                    filterText: shortName
-                };
-            }
-
-            const parts = uid.split('::');
-            const shortName = parts[parts.length - 1];
-
-            if (uid.startsWith('std::')) {
-                if (parts.length >= 3) {
-                    const shortQualified = parts[parts.length - 2] + '::' + parts[parts.length - 1];
-                    return {
-                        insertText: shortQualified,
-                        label: shortQualified,
-                        filterText: parts[parts.length - 1]
-                    };
-                } else {
-                    const shortQualified = parts[parts.length - 1];
-                    return {
-                        insertText: shortQualified,
-                        label: shortQualified,
-                        filterText: shortQualified
-                    };
-                }
-            }
-
-            return {
-                insertText: uid,
-                label: uid,
-                filterText: shortName
-            };
-        }
-
-        // Lightweight upward scanner to resolve local variable types, values, and declarations
-        function findLocalVariable(model, position, word) {
-            if (!model || !position || !word) return null;
-
-            const currentLine = position.lineNumber;
-            const wordRegex = new RegExp(`\\b${word}\\b`);
-
-            for (let i = currentLine; i >= 1; i--) {
-                const line = model.getLineContent(i);
-                const trimmed = line.trim();
-
-                if (trimmed.startsWith('module ')) {
-                    break;
-                }
-
-                const declMatch = line.match(new RegExp(`\\b([a-zA-Z_0-9<>\\[\\]*?]+)\\s+(${word})\\b\\s*(?:[=,;]|$)`));
-                if (declMatch) {
-                    const type = declMatch[1];
-                    return {
-                        name: word,
-                        kind: 'local variable',
-                        type: type,
-                        line: i,
-                        column: line.indexOf(word) + 1,
-                        docs: `Local variable of type \`${type}\``
-                    };
-                }
-
-                const foreachMatch = line.match(/foreach\s*\(\s*([a-zA-Z_0-9]+)\s*(?:,\s*([a-zA-Z_0-9]+))?\s*:\s*([a-zA-Z_0-9_]+)/);
-                if (foreachMatch) {
-                    const firstVar = foreachMatch[1];
-                    const secondVar = foreachMatch[2];
-                    const iterable = foreachMatch[3];
-
-                    if (firstVar === word) {
-                        return {
-                            name: word,
-                            kind: 'loop variable',
-                            type: secondVar ? 'usz' : 'element',
-                            line: i,
-                            column: line.indexOf(word) + 1,
-                            docs: `Loop variable inside \`foreach\` over \`${iterable}\``
-                        };
-                    } else if (secondVar === word) {
-                        return {
-                            name: word,
-                            kind: 'loop variable',
-                            type: 'element',
-                            line: i,
-                            column: line.indexOf(word) + 1,
-                            docs: `Loop element variable inside \`foreach\` over \`${iterable}\``
-                        };
-                    }
-                }
-
-                const forMatch = line.match(new RegExp(`for\\s*\\(\\s*([a-zA-Z_0-9<>\\[\\]*?]+)\\s+(${word})\\b`));
-                if (forMatch) {
-                    const type = forMatch[1];
-                    return {
-                        name: word,
-                        kind: 'loop variable',
-                        type: type,
-                        line: i,
-                        column: line.indexOf(word) + 1,
-                        docs: `Loop iterator variable of type \`${type}\``
-                    };
-                }
-
-                const fnMatch = line.match(/fn\s+([a-zA-Z_0-9*?]+)\s+([a-zA-Z_0-9]+)\s*\(([^)]*)\)/);
-                if (fnMatch) {
-                    const paramsText = fnMatch[3];
-                    const params = paramsText.split(',').map(p => p.trim());
-                    for (const param of params) {
-                        const parts = param.split(/\s+/);
-                        if (parts.length >= 2) {
-                            const paramName = parts[parts.length - 1];
-                            const paramType = parts.slice(0, -1).join(' ');
-                            if (paramName === word) {
-                                return {
-                                    name: word,
-                                    kind: 'parameter',
-                                    type: paramType,
-                                    line: i,
-                                    column: line.indexOf(word) + 1,
-                                    docs: `Parameter of function \`${fnMatch[2]}\` of type \`${paramType}\``
-                                };
-                            }
-                        }
-                    }
-                    break;
-                }
-            }
-            return null;
-        }
-
-        // Renders layout markers on context hover, incorporating standard library doc fragments
-        function formatSymbolHover(sym) {
-            const contents = [];
-            const signature = getSymbolSignature(sym);
-            if (signature) {
-                contents.push({ value: `\`\`\`c3\n${signature}\n\`\`\`` });
-            } else {
-                contents.push({ value: `**${sym.kind || 'definition'}** \`${sym.uid}\`` });
-            }
-
-            if (sym.docs && sym.docs.text) {
-                contents.push({ value: sym.docs.text });
-            }
-
-            if (sym.docs && Array.isArray(sym.docs.params) && sym.docs.params.length > 0) {
-                let paramText = `**Parameters:**\n`;
-                for (const p of sym.docs.params) {
-                    paramText += `* \`${p.name}\`: ${p.description || ''}\n`;
-                }
-                contents.push({ value: paramText });
-            }
-
-            if (sym.docs && sym.docs.return) {
-                contents.push({ value: `**Returns:** ${sym.docs.return}` });
-            }
-
-            let footerParts = [];
-            if (sym.file) {
-                footerParts.push(`*Defined in \`${sym.file}\`*`);
-            }
-
-            // If the symbol is part of the standard library, append a clickable doc link on a new line
-            if (sym.uid && sym.uid.startsWith('std::')) {
-                const docUrl = `https://c3-lang.org/standard-library/docs.html#${sym.uid}`;
-                footerParts.push(`[Open Stdlib Docs ↗](${docUrl})`);
-            }
-
-            if (footerParts.length > 0) {
-                contents.push({ value: footerParts.join('\n\n') });
-            }
-
-            return { contents: contents };
-        }
-
-        function formatConsoleOutput(text) {
-            let escaped = text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;");
-
-            const linkRegex = /(?:\/main\.c3|main\.c3):(\d+)(?::(\d+))?/g;
-
-            return escaped.replace(linkRegex, (match, line, col) => {
-                const c = col ? col : 1;
-                return `<span class="console-link" style="color: #38bdf8; text-decoration: none; cursor: pointer; font-weight: bold;" data-line="${line}" data-col="${c}">${match}</span>`;
-            });
-        }
-
-        function parseCompilerErrors(stderrText) {
-            const markers = [];
-            const lines = stderrText.split('\n');
-            const errorRegex = /(?:\/main\.c3|main\.c3):(\d+)(?::(\d+))?\)?\s*(Error|Warning):\s*(.*)/i;
-            const model = editor.getModel();
-
-            for (const line of lines) {
-                const match = line.match(errorRegex);
-                if (match) {
-                    const lineNum = parseInt(match[1], 10);
-                    const colNum = match[2] ? parseInt(match[2], 10) : 1;
-                    const severityStr = match[3].toLowerCase();
-                    const message = match[4].trim();
-
-                    const severity = severityStr === "error"
-                        ? monaco.MarkerSeverity.Error
-                        : monaco.MarkerSeverity.Warning;
-
-                    let endColumn = colNum + 1;
-                    if (model) {
-                        const wordInfo = model.getWordAtPosition({ lineNumber: lineNum, column: colNum });
-                        if (wordInfo) {
-                            endColumn = wordInfo.endColumn;
-                        }
-                    }
-
-                    markers.push({
-                        severity: severity,
-                        message: message,
-                        startLineNumber: lineNum,
-                        startColumn: colNum,
-                        endLineNumber: lineNum,
-                        endColumn: endColumn
-                    });
-                }
-            }
-            return markers;
-        }
-
-        function definition() {
-            return {
-                defaultToken: 'invalid',
-
-                keywords: [
-                    'alias', 'assert', 'asm', 'attrdef', 'bitstruct', 'break', 'case', 'catch', 'const',
-                    'constdef', 'continue', 'default', 'defer', 'do', 'else', 'enum', 'extern', 'false',
-                    'fault', 'faultdef', 'for', 'foreach', 'foreach_r', 'fn', 'if', 'import', 'inline',
-                    'interface', 'lengthof', 'macro', 'module', 'nextcase', 'null', 'return', 'scope',
-                    'static', 'struct', 'switch', 'tlocal', 'true', 'try', 'typedef', 'union', 'var', 'while',
-                    '$assert', '$case', '$concat', '$default', '$defined', '$echo', '$else', '$embed',
-                    '$endfor', '$endforeach', '$endif', '$endswitch', '$error', '$eval', '$exec', '$expand',
-                    '$feature', '$for', '$foreach', '$if', '$include', '$reflect', '$stringify', '$switch',
-                    '$varef', '$vaarg', '$vaexpr',
-                    '$$abs', '$$acos', '$$asin', '$$atan', '$$any_make', '$$atomic_load', '$$atomic_store',
-                    '$$atomic_fetch_exchange', '$$atomic_fetch_add', '$$atomic_fetch_sub', '$$atomic_fetch_and',
-                    '$$atomic_fetch_nand', '$$atomic_fetch_or', '$$atomic_fetch_xor', '$$atomic_fetch_max',
-                    '$$atomic_fetch_min', '$$atomic_fetch_inc_wrap', '$$atomic_fetch_dec_wrap', '$$bitreverse',
-                    '$$breakpoint', '$$bswap', '$$ceil', '$$compare_exchange', '$$copysign', '$$cos', '$$cosh',
-                    '$$clz', '$$ctz', '$$add', '$$div', '$$mod', '$$mul', '$$neg', '$$sub', '$$exp', '$$exp2',
-                    '$$exp10', '$$expect', '$$expect_with_probability', '$$fence', '$$floor', '$$fma',
-                    '$$fmuladd', '$$frameaddress', '$$fshl', '$$fshr', '$$gather', '$$get_rounding_mode',
-                    '$$int_to_mask', '$$log', '$$log2', '$$log10', '$$matrix_mul', '$$matrix_transpose',
-                    '$$mask_to_int', '$$masked_load', '$$masked_store', '$$max', '$$memcpy', '$$memcpy_inline',
-                    '$$memmove', '$$memset', '$$memset_inline', '$$min', '$$nearbyint', '$$overflow_add',
-                    '$$overflow_mul', '$$overflow_sub', '$$popcount', '$$pow', '$$pow_int', '$$prefetch',
-                    '$$reduce_add', '$$reduce_and', '$$reduce_fadd', '$$reduce_fmul', '$$reduce_max',
-                    '$$reduce_min', '$$reduce_mul', '$$reduce_or', '$$reduce_xor', '$$reverse', '$$returnaddress',
-                    '$$rint', '$$rnd', '$$round', '$$roundeven', '$$sat_add', '$$sat_shl', '$$sat_sub',
-                    '$$sat_mul', '$$scatter', '$$select', '$$set_rounding_mode', '$$sprintf', '$$str_find',
-                    '$$str_hash', '$$str_lower', '$$str_pascalcase', '$$str_replace', '$$str_upper',
-                    '$$str_snakecase', '$$swizzle', '$$swizzle2', '$$sin', '$$sinh', '$$sqrt', '$$syscall',
-                    '$$sysclock', '$$tan', '$$tanh', '$$trap', '$$trunc', '$$unaligned_load', '$$unaligned_store',
-                    '$$unreachable', '$$veccomplt', '$$veccomple', '$$veccompgt', '$$veccompge', '$$veccompeq',
-                    '$$veccompne', '$$volatile_load', '$$volatile_store', '$$wasm_memory_size', '$$wasm_memory_grow',
-                    '$$wstr16', '$$wstr32', '$$DATE', '$$FILE', '$$FILEPATH', '$$FUNC', '$$FUNCTION', '$$LINE',
-                    '$$LINE_RAW', '$$MODULE', '$$BENCHMARK_NAMES', '$$BENCHMARK_FNS', '$$TEST_NAMES', '$$TEST_FNS',
-                    '$$TIME',
-                    'excuse', 'faultconst', 'faultset', 'cenum', 'constset', 'attrgroup', 'attrmacro', 'distinct'
-                ],
-                typeKeywords: [
-                    'any', 'void', 'bool', 'char', 'double', 'float16', 'bfloat', 'bfloat16', 'float128',
-                    'int128', 'int', 'ichar', 'iptr', 'sz', 'long', 'short', 'uint128', 'uint', 'ulong',
-                    'uptr', 'ushort', 'usz', 'float', 'typeid', 'fault', '$Typeof', '$Typefrom'
-                ],
-                operators: [
-                    '+', '-', '/', '*', '=', '^', '&', '?', '|', '!', '>', '<', '%', '??', '!!', '?:',
-                    '???', '++', '--', '<<', '>>', '+=', '-=', '/=', '*=', '==', '!=', '^=', '&=', '|=',
-                    '>=', '<=', '%=', '<<=', '>>=', '+++=', '+++', '&&&', '|||', '~', '::', '->', '!!!',
-                    '[<', '>]', '=>'
-                ],
-                attributes: [
-                    '@align', '@benchmark', '@bigendian', '@builtin', '@cdecl', '@cname', '@deprecated',
-                    '@dynamic', '@export', '@extname', '@inline', '@interface', '@littleendian', '@local',
-                    '@maydiscard', '@mustinit', '@naked', '@nodiscard', '@noinit', '@noinline', '@noreturn',
-                    '@nostrip', '@obfuscate', '@operator', '@overlap', '@packed', '@priority', '@private',
-                    '@public', '@pure', '@reflect', '@section', '@stdcall', '@test', '@unused', '@used',
-                    '@veccall', '@wasm', '@weak', '@winmain'
-                ],
-
-                symbols: /[=><!~?:&|+\-*/^%]+/,
-                escapes: /\\(?:[0abefnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
-
-                tokenizer: {
-                    root: [
-                        [
-                            /@[a-zA-Z_$][\w$]*/,
-                            {
-                                cases: {
-                                    '@attributes': 'keyword',
-                                    '@default': 'annotation',
-                                },
-                            },
-                        ],
-                        [/\$[a-zA-Z_$][\w$]*/, 'keyword'],
-                        [/[a-z_$][\w$]*(?=\s*\()/, 'function'],
-                        [/[a-z_$][\w$]*(?=\s*::)/, 'keyword'],
-                        [/[iu]\d+/, 'keyword'],
-                        [
-                            /[a-z_$][\w$]*/,
-                            {
-                                cases: {
-                                    '@typeKeywords': 'type',
-                                    '@keywords': 'keyword',
-                                    '@default': 'identifier',
-                                },
-                            },
-                        ],
-                        [/[A-Z][\w$]*/, 'type.identifier'],
-                        { include: '@whitespace' },
-                        [/#![^\n]*$/, 'comment'],
-                        [/[{}()[\]]/, '@brackets'],
-                        [/[<>](?!@symbols)/, '@brackets'],
-                        [
-                            /@symbols/,
-                            {
-                                cases: {
-                                    '@operators': 'operator',
-                                    '@default': '',
-                                },
-                            },
-                        ],
-                        [/\d*\.\d+([eE][-+]?\d+)?[fFdD]?/, 'number.float'],
-                        [/0[xX][0-9a-fA-F_]*[0-9a-fA-F][Ll]?/, 'number.hex'],
-                        [/0o[0-7_]*[0-7][Ll]?/, 'number.octal'],
-                        [/0[bB][0-1_]*[0-1][Ll]?/, 'number.binary'],
-                        [/\d+/, 'number'],
-                        [/[;,.]/, 'delimiter'],
-                        [/"([^"\\]|\\.)*$/, 'string.invalid'],
-                        [/(?:c|x|b64)?\\\\.*$/, 'string'],
-                        [/(?:c|x|b64)?"/, 'string', '@string'],
-                        [/(?:c|x|b64)?`/, 'string', '@rawString'],
-                        [/(?:c|x|b64)?'[^\\']*'/, 'string'],
-                        [/(?:c|x|b64)?(')(@escapes)(')/, ['string', 'string.escape', 'string']],
-                        [/'/, 'string.invalid']
-                    ],
-
-                    whitespace: [
-                        [/[ \r\n]+/, 'white'],
-                        [/\/\*/, 'comment', '@comment'],
-                        [/<\*/, 'contract', '@contract'],
-                        [/\/\/.*$/, 'comment'],
-                        [/\t/, 'comment.invalid']
-                    ],
-
-                    comment: [
-                        [/[^/*]+/, 'comment'],
-                        [/\/\*/, 'comment', '@comment'],
-                        [/\*\//, 'comment', '@pop'],
-                        [/\*>/, 'comment', '@pop'],
-                        [/[/*]/, 'comment']
-                    ],
-
-                    contract: [
-                        [/[^/*]+/, 'contract'],
-                        [/\*>/, 'contract', '@pop'],
-                        [/[/*]/, 'contract'],
-                        [/\t/, 'contract.invalid']
-                    ],
-
-                    string: [
-                        [/[^\\"]+/, 'string'],
-                        [/@escapes/, 'string.escape'],
-                        [/\\./, 'string.escape.invalid'],
-                        [/"/, 'string', '@pop']
-                    ],
-
-                    rawString: [
-                        [/``/, 'string.escape'],
-                        [/[^`]+/, 'string'],
-                        [/`/, 'string', '@pop']
-                    ]
-                }
-            };
-        }
-
-        require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs' } });
-
-        require(['vs/editor/editor.main'], async function () {
-            monaco.languages.register({ id: 'c3' });
-            monaco.languages.setMonarchTokensProvider('c3', definition());
-
-            monaco.languages.setLanguageConfiguration('c3', {
-                comments: {
-                    lineComment: '//',
-                    blockComment: ['/*', '*/'],
-                },
-                brackets: [
-                    ['{', '}'],
-                    ['[', ']'],
-                    ['(', ')']
-                ],
-                autoClosingPairs: [
-                    { open: '{', close: '}' },
-                    { open: '[', close: ']' },
-                    { open: '(', close: ')' },
-                    { open: '"', close: '"', notIn: ['string'] },
-                    { open: "'", close: "'", notIn: ['string', 'comment'] },
-                    { open: '`', close: '`', notIn: ['string', 'comment'] }
-                ],
-                surroundingPairs: [
-                    { open: '{', close: '}' },
-                    { open: '[', close: ']' },
-                    { open: '(', close: ')' },
-                    { open: '"', close: '"' },
-                    { open: "'", close: "'" },
-                    { open: '`', close: '`' }
-                ]
-            });
-
-            monaco.languages.registerCompletionItemProvider('c3', {
-                triggerCharacters: ['@', '$', ':'],
-
-                provideCompletionItems: function (model, position) {
-                    const word = model.getWordUntilPosition(position);
-
-                    let range = {
-                        startLineNumber: position.lineNumber,
-                        endLineNumber: position.lineNumber,
-                        startColumn: word.startColumn,
-                        endColumn: word.endColumn
-                    };
-
-                    const lineContent = model.getLineContent(position.lineNumber);
-                    const precedingCharIndex = word.startColumn - 2;
-                    if (precedingCharIndex >= 0 && (lineContent[precedingCharIndex] === '@' || lineContent[precedingCharIndex] === '$')) {
-                        range.startColumn -= 1;
-                    }
-
-                    const c3Def = definition();
-                    const suggestions = [];
-
-                    const lineUntilPosition = lineContent.substring(0, position.column - 1);
-                    const namespaceMatch = lineUntilPosition.match(/([a-zA-Z_0-9]+(?:::[a-zA-Z_0-9]+)*)::$/);
-
-                    let typedNamespace = "";
-                    if (namespaceMatch) {
-                        typedNamespace = namespaceMatch[1];
-                    }
-
-                    if (typedNamespace) {
-                        docDbSymbols.forEach(sym => {
-                            if (matchesNamespace(sym, typedNamespace)) {
-                                const signature = getSymbolSignature(sym);
-                                const docText = sym.docs ? (typeof sym.docs === 'string' ? sym.docs : (sym.docs.text || '')) : '';
-
-                                suggestions.push({
-                                    label: sym.name,
-                                    kind: getCompletionItemKind(sym),
-                                    insertText: sym.name,
-                                    range: range,
-                                    detail: signature || sym.uid,
-                                    documentation: docText ? { value: docText } : undefined
-                                });
-                            }
-                        });
-                    } else {
-                        c3Def.keywords.forEach(keyword => {
-                            suggestions.push({
-                                label: keyword,
-                                kind: monaco.languages.CompletionItemKind.Keyword,
-                                insertText: keyword,
-                                range: range
-                            });
-                        });
-
-                        c3Def.typeKeywords.forEach(type => {
-                            suggestions.push({
-                                label: type,
-                                kind: monaco.languages.CompletionItemKind.Class,
-                                insertText: type,
-                                range: range
-                            });
-                        });
-
-                        c3Def.attributes.forEach(attr => {
-                            suggestions.push({
-                                label: attr,
-                                kind: monaco.languages.CompletionItemKind.Property,
-                                insertText: attr,
-                                range: range
-                            });
-                        });
-
-                        const shortNamespaces = new Set();
-                        docDbSymbols.forEach(s => {
-                            if (s.uid && s.uid.startsWith('std::')) {
-                                const parts = s.uid.split('::');
-                                if (parts.length >= 3) {
-                                    shortNamespaces.add(parts[parts.length - 2]);
-                                }
-                            } else if (s.uid && s.uid.includes('::')) {
-                                const parts = s.uid.split('::');
-                                if (parts.length >= 2) {
-                                    shortNamespaces.add(parts[0]);
-                                }
-                            }
-                        });
-
-                        shortNamespaces.forEach(ns => {
-                            suggestions.push({
-                                label: ns,
-                                kind: monaco.languages.CompletionItemKind.Module,
-                                insertText: ns,
-                                range: range,
-                                detail: `Module ${ns}`,
-                                documentation: `Standard library module ${ns}`
-                            });
-                        });
-
-                        docDbSymbols.forEach(sym => {
-                            const compNames = getSymbolCompletionNames(sym);
-                            const signature = getSymbolSignature(sym);
-                            const docText = sym.docs ? (typeof sym.docs === 'string' ? sym.docs : (sym.docs.text || '')) : '';
-
-                            suggestions.push({
-                                label: compNames.label,
-                                kind: getCompletionItemKind(sym),
-                                insertText: compNames.insertText,
-                                filterText: compNames.filterText,
-                                range: range,
-                                detail: signature || sym.uid,
-                                documentation: docText ? { value: docText } : undefined
-                            });
-                        });
-                    }
-
-                    return { suggestions: suggestions };
-                }
-            });
-
-            monaco.languages.registerHoverProvider('c3', {
-                provideHover: function (model, position) {
-                    const fullId = getFullIdentifierAt(model, position);
-                    console.log(`[Monaco Diagnostics] User hovered over word: "${fullId}"`);
-
-                    // 1. Try to find a global database symbol match first
-                    const matches = findSymbols(fullId);
-                    if (matches.length > 0) {
-                        return formatSymbolHover(matches[0]);
-                    }
-
-                    // 2. Local fallback upward scan (types, arrays, loop indexes, parameters)
-                    const localSym = findLocalVariable(model, position, fullId);
-                    if (localSym) {
-                        return {
-                            contents: [
-                                { value: `\`\`\`c3\n${localSym.kind} ${localSym.type} ${localSym.name}\n\`\`\`` },
-                                { value: localSym.docs },
-                                { value: `*Declared on line ${localSym.line}*` }
-                            ]
-                        };
-                    }
-                    return null;
-                }
-            });
-
-            monaco.languages.registerDefinitionProvider('c3', {
-                provideDefinition: function (model, position) {
-                    const fullId = getFullIdentifierAt(model, position);
-                    console.log(`[Monaco Diagnostics] User requested definition for: "${fullId}"`);
-
-                    // 1. Check database definitions first
-                    const matches = findSymbols(fullId);
-                    const localSym = matches.find(s => s.file && s.file.includes('main.c3'));
-                    if (localSym) {
-                        console.log(`[Monaco Diagnostics] Matching local definition found: ${localSym.file}`);
-                        const fileMatch = localSym.file.match(/(?:^|\/)(main\.c3):(\d+):(\d+)/);
-                        if (fileMatch) {
-                            const line = parseInt(fileMatch[2], 10);
-                            const col = parseInt(fileMatch[3], 10);
-                            return {
-                                uri: model.uri,
-                                range: new monaco.Range(line, col, line, col)
-                            };
-                        }
-                    }
-
-                    // 2. Scan upwards inside the active file scope for local variables
-                    const localVariable = findLocalVariable(model, position, fullId);
-                    if (localVariable) {
-                        console.log(`[Monaco Diagnostics] Jumper navigating to local variable declaration: line ${localVariable.line}`);
-                        return {
-                            uri: model.uri,
-                            range: new monaco.Range(localVariable.line, localVariable.column, localVariable.line, localVariable.column + fullId.length)
-                        };
-                    }
-
-                    // 3. Fallback to opening std library website specs
-                    if (isNavigating) {
-                        const stdSym = matches.find(s => s.file && !s.file.includes('main.c3'));
-                        if (stdSym) {
-                            const docUrl = `https://c3-lang.org/standard-library/docs.html#${stdSym.uid}`;
-                            console.log(`[Monaco Diagnostics] Opening external C3 standard library docs: ${docUrl}`);
-                            window.open(docUrl, '_blank');
-                        } else {
-                            console.warn(`[Monaco Diagnostics] No definition match found for: "${fullId}"`);
-                        }
-                    }
-                    return null;
-                }
-            });
-
-            // Syntax highlighting custom rules matched directly to standard c3-lang.org slate theme specs
-            monaco.editor.defineTheme('c3PlaygroundTheme', {
-                base: 'vs-dark',
-                inherit: true,
-                rules: [
-                    { token: 'keyword', foreground: 'ff7b72', fontStyle: 'bold' },
-                    { token: 'annotation', foreground: 'ffa657' },
-                    { token: 'type.identifier', foreground: '7ee787' },
-                    { token: 'type', foreground: '7ee787' },
-                    { token: 'comment', foreground: '8b949e', fontStyle: 'italic' },
-                    { token: 'string', foreground: 'a5d6ff' },
-                    { token: 'number', foreground: '79c0ff' },
-                    { token: 'operator', foreground: 'ff7b72' },
-                    { token: 'function', foreground: 'd2a8ff' },
-                    { token: 'identifier', foreground: 'C5E478' },
-                    { token: 'delimiter', foreground: 'c9d1d9' }
-                ],
-                colors: {
-                    'editor.background': '#1e293b',
-                    'editor.foreground': '#D39DD6',
-                    'editor.lineHighlightBackground': '#33415544',
-                    'editorCursor.foreground': '#38bdf8',
-                    'editor.selectionBackground': '#38bdf822',
-                    'editorLineNumber.foreground': '#475569',
-                    'editorLineNumber.activeForeground': '#38bdf8'
-                }
-            });
-
-            // Determine the default fallback example (the first one defined in the HTML)
-            const exampleKeys = Object.keys(examples);
-            const defaultExampleKey = exampleKeys[0] || "";
-
-            const savedCode = localStorage.getItem("c3_playground_code");
-            const savedExample = localStorage.getItem("c3_playground_selected_example");
-            const sharedCode = await getSharedCode();
-
-            const initialCodeValue = sharedCode !== null ? sharedCode : (savedCode !== null ? savedCode : examples[defaultExampleKey]);
-
-            if (sharedCode !== null) {
-                exampleSelect.value = "";
-            } else if (savedExample && examples[savedExample]) {
-                exampleSelect.value = savedExample;
-            } else {
-                exampleSelect.value = defaultExampleKey;
-            }
-
-            editor = monaco.editor.create(document.getElementById("code"), {
-                value: initialCodeValue,
-                language: 'c3',
-                theme: 'c3PlaygroundTheme',
-                automaticLayout: true,
-                fontSize: 14,
-                lineHeight: 22,
-                fontFamily: "'Cascadia Code', 'Fira Code', Consolas, Monaco, monospace",
-                tabSize: 4,
-                insertSpaces: false,
-                detectIndentation: false,
-                minimap: { enabled: true },
-                unicodeHighlight: {
-                    allowedLocales: {
-                        el: true
-                    }
-                }
-            });
-
-            editor.layout();
-            editor.focus();
-
-            editor.onDidChangeModelContent(() => {
-                localStorage.setItem("c3_playground_code", editor.getValue());
-                queueDocgenUpdate();
-            });
-
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function () {
-                if (!compileBtn.disabled) {
-                    compileBtn.click();
-                }
-            });
-
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function () {
-                saveCodeToDisk();
-            });
-
-            exampleSelect.onchange = () => {
-                if (editor && examples[exampleSelect.value]) {
-                    editor.setValue(examples[exampleSelect.value]);
-                    localStorage.setItem("c3_playground_selected_example", exampleSelect.value);
-                    localStorage.setItem("c3_playground_code", examples[exampleSelect.value]);
-                    if (window.location.hash) {
-                        history.replaceState(null, null, ' ');
-                    }
-                }
-            };
-
-            loadAndCompileCompiler();
-        });
-
-        let isAnyCompilerTaskRunning = false;
-        let activeWorker = null;
-        let activeTaskType = null;
-        let compilerWorkerBlobUrl = null;
-
-        async function executeCompilerTask(taskType, sourceCode, onMessageCallback) {
-            if (isAnyCompilerTaskRunning) {
-                // Abort low priority background operations if a new process requested it
-                if (activeWorker && (activeTaskType === "docgen" || activeTaskType === "version")) {
-                    console.log(`[Execute Task] Forcibly terminating background task '${activeTaskType}' to start '${taskType}'.`);
-                    activeWorker.terminate();
-                    isAnyCompilerTaskRunning = false;
-                    activeWorker = null;
-                    activeTaskType = null;
-                } else {
-                    console.warn(`[Execute Task] A compiler task is already running. Skipping task of type '${taskType}'.`);
-                    return;
-                }
-            }
-            isAnyCompilerTaskRunning = true;
-            activeTaskType = taskType;
-
-            if (taskType === "compile") {
-                compileBtn.disabled = true;
-                setStatus("Compiling...", "compiling");
-            }
-
-            console.log(`[Execute Task] Spawning new worker for task type: '${taskType}'`);
-            if (!c3WorkerJsText) {
-                console.error("[Execute Task] c3WorkerJsText is not loaded!");
-                isAnyCompilerTaskRunning = false;
-                activeTaskType = null;
-                if (taskType === "compile") {
-                    compileBtn.disabled = false;
-                    setStatus("Compiler Ready", "ready");
-                }
-                return;
-            }
-
-            if (!compilerWorkerBlobUrl) {
-                const blob = new Blob([c3WorkerJsText], { type: 'application/javascript' });
-                compilerWorkerBlobUrl = URL.createObjectURL(blob);
-            }
-            const tempWorker = new Worker(compilerWorkerBlobUrl);
-            activeWorker = tempWorker;
-
-            let initComplete = false;
-
-            tempWorker.onerror = (err) => {
-                console.warn(`[Execute Task] Worker of type '${taskType}' crashed/aborted unexpectedly. Terminating.`, err);
-                tempWorker.terminate();
-                isAnyCompilerTaskRunning = false;
-                activeWorker = null;
-                activeTaskType = null;
-                if (taskType === "compile") {
-                    outputEl.textContent += "\n[FATAL ERROR] Compiler worker crashed unexpectedly. Please refresh if issues persist.\n";
-                    compileBtn.disabled = false;
-                    setStatus("Compiler Ready", "ready");
-                } else {
-                    docDbSymbols = [];
-                }
-                URL.revokeObjectURL(compilerWorkerBlobUrl);
-                compilerWorkerBlobUrl = null;
-
-                try {
-                    onMessageCallback({ type: `${taskType}_failed`, error: err.message || 'Worker crash' }, tempWorker);
-                } catch (e) { }
-            };
-
-            tempWorker.onmessage = (e) => {
-                const msg = e.data;
-
-                if (msg.type === "ready") {
-                    initComplete = true;
-                    tempWorker.postMessage({ type: taskType, source: sourceCode });
-                    return;
-                }
-
-                if (taskType === "compile" && (msg.type === "stdout" || msg.type === "stderr")) {
-                    onMessageCallback(msg, tempWorker);
-                    return;
-                }
-
-                let callbackFinished = false;
-                try {
-                    tempWorker.terminate();
-                    isAnyCompilerTaskRunning = false;
-                    activeWorker = null;
-                    activeTaskType = null;
-                    if (taskType === "compile") {
-                        compileBtn.disabled = false;
-                        setStatus("Compiler Ready", "ready");
-                    }
-                    onMessageCallback(msg, tempWorker);
-                    callbackFinished = true;
-                } finally {
-                    if (!callbackFinished) {
-                        tempWorker.terminate();
-                        isAnyCompilerTaskRunning = false;
-                        activeWorker = null;
-                        activeTaskType = null;
-                        if (taskType === "compile") {
-                            compileBtn.disabled = false;
-                            setStatus("Compiler Ready", "ready");
-                        }
-                    }
-                }
-            };
-
-            setTimeout(() => {
-                if (!initComplete) {
-                    console.error(`[Execute Task] Worker of type '${taskType}' failed to initialize within timeout. Terminating.`);
-                    tempWorker.terminate();
-                    isAnyCompilerTaskRunning = false;
-                    activeWorker = null;
-                    activeTaskType = null;
-                    if (taskType === "compile") {
-                        outputEl.textContent += "\n[FATAL ERROR] Compiler worker failed to initialize. Please refresh.\n";
-                        compileBtn.disabled = false;
-                        setStatus("Compiler Ready", "ready");
-                    } else {
-                        docDbSymbols = [];
-                    }
-                    URL.revokeObjectURL(compilerWorkerBlobUrl);
-                    compilerWorkerBlobUrl = null;
-
-                    try {
-                        onMessageCallback({ type: `${taskType}_failed`, error: 'Timeout' }, tempWorker);
-                    } catch (e) { }
-                }
-            }, 5000);
-
-            tempWorker.postMessage({
-                type: "init_module",
-                wasmModule: compiledCompilerModule,
-                c3cJs: c3cJsText,
-                c3cData: c3cDataBuffer
-            });
-        }
-
-        let compilerVersionText = "";
-
-        async function queryCompilerVersion() {
-            return new Promise((resolve) => {
-                executeCompilerTask(
-                    "version",
-                    "",
-                    (msg, tempWorker) => {
-                        if (msg.type === "version_info") {
-                            compilerVersionText = msg.text.trim();
-                            // Render precisely aligned version payload inside the styled monospaced pre element
-                            statusTooltipEl.textContent = compilerVersionText;
-                            console.log("[Version query] Loaded compiler version info:\n", compilerVersionText);
-                        } else if (msg.type === "version_failed") {
-                            statusTooltipEl.textContent = "C3 Compiler Version information unavailable";
-                            console.warn("[Version query] Failed to fetch compiler version.");
-                        }
-                        resolve();
-                        return true;
-                    }
-                );
-            });
-        }
-
-        async function loadAndCompileCompiler() {
-            compileBtn.disabled = true;
-            setStatus("Loading Compiler...", "");
-            try {
-                console.log("Starting parallel download of all compiler assets...");
-
-                const wasmFetchPromise = (async () => {
-                    console.log("Fetching compiler module build/c3c.wasm...");
-                        const res = await fetch('build/c3c.wasm');
-                    if (!res.ok) throw new Error('Failed to fetch c3c.wasm (status: ' + res.status + ')');
-                    const wasmBuffer = await res.arrayBuffer();
-
-                    console.log("Compiling WebAssembly compiler module...");
-                    compiledCompilerModule = await WebAssembly.compile(wasmBuffer);
-                    console.log("WebAssembly compiler module compiled successfully!");
-                })();
-
-                const jsFetchPromise = fetch('build/c3c.js').then(res => {
-                    if (!res.ok) throw new Error('Failed to fetch c3c.js');
-                    return res.text();
-                }).then(text => {
-                    c3cJsText = text;
-                    console.log("Successfully loaded build/c3c.js text (" + text.length + " chars)");
-                });
-
-                const dataFetchPromise = fetch('build/c3c.data').then(res => {
-                    if (!res.ok) throw new Error('Failed to fetch c3c.data');
-                    return res.arrayBuffer();
-                }).then(buf => {
-                    c3cDataBuffer = buf;
-                    console.log("Successfully loaded build/c3c.data buffer (" + buf.byteLength + " bytes)");
-                });
-
-                const workerJsFetchPromise = fetch('c3-worker.js').then(res => {
-                    if (!res.ok) throw new Error('Failed to fetch c3-worker.js');
-                    return text = res.text();
-                }).then(text => {
-                    c3WorkerJsText = text;
-                    console.log("Successfully loaded c3-worker.js text (" + text.length + " chars)");
-                });
-
-                setStatus("Downloading files...", "");
-                await Promise.all([wasmFetchPromise, jsFetchPromise, dataFetchPromise, workerJsFetchPromise]);
-
-                queryCompilerVersion().then(() => {
-                    setStatus("Compiler Ready", "ready");
-                    compileBtn.disabled = false;
-                    triggerSilentDocgen();
-                });
-
-            } catch (err) {
-                console.error("Fatal initialization error:", err);
-                setStatus("Initialization Failed", "");
-                outputEl.textContent += "\n[Fatal Error] Failed to initialize compiler: " + err.message + "\n";
-                compileBtn.disabled = true;
-            }
-        }
-
-        function triggerSilentDocgen() {
-            if (!editor) return;
-            const codeValue = editor.getValue();
-
-            executeCompilerTask(
-                "docgen",
-                codeValue,
-                (msg, tempWorker) => {
-                    switch (msg.type) {
-                        case "doc_db":
-                            docDbSymbols = flattenDocgen(msg.db);
-                            break;
-                        case "docgen_failed":
-                            docDbSymbols = [];
-                            break;
-                    }
-                    return true;
-                }
-            );
-        }
-
-        compileBtn.onclick = () => {
-            if (!editor) return;
-            if (isAnyCompilerTaskRunning && activeTaskType === "compile") {
-                console.warn("[Compile Button] Ignoring click: a compilation task is already running.");
-                return;
-            }
-            const codeValue = editor.getValue();
-            console.log("Compile button clicked. Source length:", codeValue.length);
-
-            // Hide canvas and cancel current loop
-            document.getElementById("canvasContainer").style.display = "none";
-            if (activeCanvasLoopId) {
-                cancelAnimationFrame(activeCanvasLoopId);
-                activeCanvasLoopId = null;
-            }
-
-            rawConsoleOutput = "";
-            outputEl.innerHTML = "";
-            monaco.editor.setModelMarkers(editor.getModel(), "c3", []);
-
-            let compileStderrBuffer = [];
-
-            executeCompilerTask(
-                "compile",
-                codeValue,
-                async (msg, tempWorker) => {
-                    switch (msg.type) {
-                        case "stdout":
-                            rawConsoleOutput += msg.text;
-                            outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
-                            break;
-                        case "stderr":
-                            rawConsoleOutput += "[ERR] " + msg.text;
-                            compileStderrBuffer.push(msg.text);
-                            outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
-                            break;
-                        case "compiled":
-                            outputEl.innerHTML += "\n[WASM Linked: " + msg.wasm.byteLength + " bytes]\n";
-                            await runEmscriptenProgram(msg.wasm);
-
-                            const successMarkers = parseCompilerErrors(compileStderrBuffer.join('\n'));
-                            monaco.editor.setModelMarkers(editor.getModel(), "c3", successMarkers);
-
-                            triggerSilentDocgen();
-                            return true;
-                        case "failed":
-                            outputEl.innerHTML += "\n[Compilation Failed]\n" + msg.error + "\n";
-
-                            const failMarkers = parseCompilerErrors(compileStderrBuffer.join('\n'));
-                            monaco.editor.setModelMarkers(editor.getModel(), "c3", failMarkers);
-                            return true;
-                    }
-                    return false;
-                }
-            );
-        };
-
-        outputEl.addEventListener('click', (e) => {
-            const target = e.target;
-            if (target && target.classList.contains('console-link')) {
-                const line = parseInt(target.getAttribute('data-line'), 10);
-                const col = parseInt(target.getAttribute('data-col'), 10);
-                if (editor && line) {
-                    console.log(`[Main Thread] Navigating editor to clicked console coordinate: line ${line}, col ${col}`);
-                    editor.revealLineInCenter(line);
-                    editor.setPosition({ lineNumber: line, column: col });
-                    editor.focus();
-                }
-            }
-        });
-
-        clearBtn.onclick = () => {
-            outputEl.textContent = "";
-            docDbSymbols = [];
-            monaco.editor.setModelMarkers(editor.getModel(), "c3", []);
-        };
-
-        statusEl.onclick = () => {
-            if (statusEl.classList.contains("ready")) {
-                console.log("Manual compiler reset requested via status badge. Forcing symbol refresh and UI reset.");
-                outputEl.textContent = "Refreshing compiler context and symbols...\n";
-                docDbSymbols = [];
-                monaco.editor.setModelMarkers(editor.getModel(), "c3", []);
-                if (!isAnyCompilerTaskRunning) {
-                    triggerSilentDocgen();
-                } else {
-                    console.warn("[Reset Badge] A task is currently running. New symbol refresh will occur after it completes.");
-                }
-            }
-        };
-
-        // Layout Panel Resizing Mechanics
-        let isDragging = false;
-
-        resizer.addEventListener("mousedown", (e) => {
-            isDragging = true;
-            resizer.classList.add("dragging");
-            document.body.style.cursor = window.innerWidth <= 768 ? "row-resize" : "col-resize";
-            document.body.style.userSelect = "none";
-            e.preventDefault();
-        });
-
-        document.addEventListener("mousemove", (e) => {
-            if (!isDragging) return;
-            const containerRect = mainLayout.getBoundingClientRect();
-            const isMobile = window.innerWidth <= 768;
-
-            if (isMobile) {
-                const topHeight = e.clientY - containerRect.top;
-                topPercentage = (topHeight / containerRect.height) * 100;
-                topPercentage = Math.max(15, Math.min(85, topPercentage));
-
-                mainLayout.style.gridTemplateRows = `${topPercentage}% 10px 1fr`;
-                mainLayout.style.gridTemplateColumns = "1fr";
-            } else {
-                const leftWidth = e.clientX - containerRect.left;
-                leftPercentage = (leftWidth / containerRect.width) * 100;
-                leftPercentage = Math.max(15, Math.min(85, leftPercentage));
-
-                mainLayout.style.gridTemplateColumns = `${leftPercentage}% 10px 1fr`;
-                mainLayout.style.gridTemplateRows = "1fr";
-            }
-
-            if (editor) {
-                editor.layout();
-            }
-        });
-
-        document.addEventListener("mouseup", () => {
-            if (isDragging) {
-                isDragging = false;
-                resizer.classList.remove("dragging");
-                document.body.style.cursor = "";
-                document.body.style.userSelect = "";
-
-                if (window.innerWidth <= 768) {
-                    localStorage.setItem("c3_playground_top_percentage", topPercentage.toFixed(2));
-                } else {
-                    localStorage.setItem("c3_playground_left_percentage", leftPercentage.toFixed(2));
-                }
-            }
-        });
-
-        copyBtn.onclick = () => {
-            if (!editor) return;
-            const codeValue = editor.getValue();
-            navigator.clipboard.writeText(codeValue).then(() => {
-                const originalHTML = copyBtn.innerHTML;
-                const originalTitle = copyBtn.title;
-
-                copyBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-        `;
-                copyBtn.title = "Copied!";
-
-                setTimeout(() => {
-                    copyBtn.innerHTML = originalHTML;
-                    copyBtn.title = originalTitle;
-                }, 1500);
-            }).catch(err => {
-                console.error("Failed to copy code to clipboard: ", err);
-            });
-        };
-
-        shareBtn.onclick = async () => {
-            if (!editor) return;
-            const codeValue = editor.getValue();
-            const encoded = await compressCode(codeValue);
-            const shareUrl = `${window.location.origin}${window.location.pathname}#code=${encoded}`;
-
-            navigator.clipboard.writeText(shareUrl).then(() => {
-                const originalHTML = shareBtn.innerHTML;
-                const originalTitle = shareBtn.title;
-
-                shareBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-        `;
-                shareBtn.title = "Link Copied!";
-
-                history.replaceState(null, null, `#code=${encoded}`);
-
-                setTimeout(() => {
-                    shareBtn.innerHTML = originalHTML;
-                    shareBtn.title = originalTitle;
-                }, 1500);
-            }).catch(err => {
-                console.error("Failed to copy share link to clipboard: ", err);
-            });
-        };
-
-        saveBtn.onclick = () => {
-            saveCodeToDisk();
-        };
-
-        function saveCodeToDisk() {
-            if (!editor) return;
-            const codeValue = editor.getValue();
-            const blob = new Blob([codeValue], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'main.c3';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            console.log("Saved main.c3 to local file system.");
-        }
-
-        async function runEmscriptenProgram(wasmBuffer) {
-            console.log("Running user program WASM buffer...");
-            rawConsoleOutput += "Executing WASM program...\n";
-            outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
-
-            let instance = null;
-            try {
-                instance = await C3EmscriptenRuntime({
-                    wasmBinary: wasmBuffer,
-                    print(text) {
-                        rawConsoleOutput += text + "\n";
-                        outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
-                    },
-                    printErr(text) {
-                        rawConsoleOutput += "[ERR] " + text + "\n";
-                        outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
-                    },
-                    onExit(code) {
-                        rawConsoleOutput += "\nProgram exited with code: " + code + "\n";
-                        outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
-                    },
-                    noInitialRun: true,
-                });
-
-                const mainFn = instance.wasmExports?.main || instance.wasmExports?.['__main_argc_argv'];
-                if (mainFn) {
-                    console.log("Main function found. Executing...");
-                    const ret = mainFn(0, 0);
-                    rawConsoleOutput += "\n[Process finished with exit code " + ret + "]\n";
-                    outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
-
-                    // Hook into Canvas loop if exports are present
-                    const getPixelsFn = instance.wasmExports?.get_pixels;
-                    const updateFn = instance.wasmExports?.update;
-
-                    if (getPixelsFn && updateFn) {
-                        console.log("[Canvas Runtime] Shared pixel buffer detected. Starting loop.");
-                        const canvas = document.getElementById("canvas");
-                        const ctx = canvas.getContext("2d");
-                        const width = 320;
-                        const height = 240;
-
-                        canvas.width = width;
-                        canvas.height = height;
-
-                        const imgData = ctx.createImageData(width, height);
-                        document.getElementById("canvasContainer").style.display = "block";
-
-                        // Capture a local reference to the active module instance
-                        const localInstance = instance;
-
-                        // Resolve WebAssembly memory buffer using standard exports fallback chain
-                        const memoryBuffer = localInstance.wasmExports?.memory?.buffer
-                            || localInstance.HEAPU8?.buffer
-                            || localInstance.asm?.memory?.buffer;
-
-                        if (!memoryBuffer) {
-                            console.error("[Canvas Runtime] Failed to resolve WebAssembly memory buffer!");
-                            return;
-                        }
-
-                        function loop() {
-                            updateFn();
-                            const ptr = getPixelsFn();
-                            const size = width * height * 4;
-
-                            const view = new Uint8ClampedArray(memoryBuffer, ptr, size);
-                            imgData.data.set(view);
-                            ctx.putImageData(imgData, 0, 0);
-
-                            activeCanvasLoopId = requestAnimationFrame(loop);
-                        }
-                        activeCanvasLoopId = requestAnimationFrame(loop);
-                    }
-                } else {
-                    rawConsoleOutput += "[ERR] Entry point 'main' not found in WASM exports\n";
-                    outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
-                }
-            } catch (err) {
-                console.error("Execution error:", err);
-                rawConsoleOutput += "\n[Execution Error] " + err + "\n";
-                outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
-            } finally {
-                // Only clear local instance reference if we are not running a continuous canvas loop
-                if (!activeCanvasLoopId) {
-                    instance = null;
-                }
-            }
-        }
-    </script>
+	<!-- Load Monaco Editor v0.56.0 Loader from jsDelivr -->
+	<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs/loader.js"></script>
+	<script src="build/emscripten_runtime.js"></script>
+	<script>
+		// Detect iOS and iPadOS (including other browsers using WebKit on iOS) and halt execution early.
+		const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+			(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+		if (isIOSDevice) {
+			document.body.innerHTML = `
+				<div style="
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					justify-content: center;
+					height: 100vh;
+					background-color: #0f172a;
+					color: #f8fafc;
+					font-family: system-ui, -apple-system, sans-serif;
+					padding: 24px;
+					text-align: center;
+					box-sizing: border-box;
+				">
+					<img src="https://c3-lang.org/assets/favicon.svg" style="height: 64px; margin-bottom: 24px;" alt="C3 Logo">
+					<h1 style="color: #38bdf8; font-size: 1.5rem; margin-bottom: 12px; font-weight: 600;">Playground Not Supported on iOS</h1>
+					<p style="color: #94a3b8; font-size: 0.95rem; max-width: 420px; line-height: 1.6; margin-bottom: 24px;">
+						The C3 compiler running in WebAssembly requires memory features and resource allocations currently restricted by iOS and iPadOS.
+					</p>
+					<p style="color: #64748b; font-size: 0.85rem;">
+						Please use a desktop browser (such as macOS Safari, Chrome, Firefox, or Edge) to use the C3 Playground.
+					</p>
+				</div>
+			`;
+			throw new Error("Execution stopped on iOS/iPadOS device.");
+		}
+
+		const outputEl = document.getElementById("output");
+		const statusEl = document.getElementById("status");
+		const statusTooltipEl = document.getElementById("statusTooltip");
+		const compileBtn = document.getElementById("compileBtn");
+		const clearBtn = document.getElementById("clearBtn");
+		const copyBtn = document.getElementById("copyBtn");
+		const saveBtn = document.getElementById("saveBtn");
+		const shareBtn = document.getElementById("shareBtn");
+		const exampleSelect = document.getElementById("exampleSelect");
+		const resizer = document.getElementById("resizer");
+		const mainLayout = document.getElementById("mainLayout");
+
+		// Dynamically discover code examples from script tags using only the data-name attribute
+		const examples = {};
+		document.querySelectorAll('script[type="text/c3"][data-name]').forEach(script => {
+			const label = script.getAttribute("data-name");
+			// Generate a clean slug for storage/keys (like: "Slices & Defer" -> "slices_and_defer")
+			const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+			examples[key] = script.textContent.trim();
+
+			// Add option directly to the select dropdown
+			const opt = document.createElement("option");
+			opt.value = key;
+			opt.textContent = label;
+			exampleSelect.appendChild(opt);
+		});
+
+		let editor = null;
+		let compiledCompilerModule = null;
+		let c3cJsText = "";
+		let c3cDataBuffer = null;
+		let c3WorkerJsText = "";
+
+		let docDbSymbols = [];
+		let docgenTimeout = null;
+
+		let rawConsoleOutput = "";
+
+		let isNavigating = false;
+		let isDocgenTaskRunning = false;
+
+		window.addEventListener('keydown', (e) => {
+			if (e.key === 'F12' || e.keyCode === 123) {
+				isNavigating = true;
+				setTimeout(() => { isNavigating = false; }, 400);
+			}
+		}, true);
+
+		window.addEventListener('mousedown', () => {
+			isNavigating = true;
+			setTimeout(() => { isNavigating = false; }, 400);
+		}, true);
+
+		// Native Async GZIP compression via browser's Compression Streams API
+		async function compressCode(str) {
+			const byteArray = new TextEncoder().encode(str);
+			const cs = new CompressionStream("gzip");
+			const writer = cs.writable.getWriter();
+			writer.write(byteArray);
+			writer.close();
+
+			const response = new Response(cs.readable);
+			const arrayBuffer = await response.arrayBuffer();
+
+			const uint8 = new Uint8Array(arrayBuffer);
+			let binary = "";
+			for (let i = 0; i < uint8.byteLength; i++) {
+				binary += String.fromCharCode(uint8[i]);
+			}
+			const base64 = btoa(binary);
+			return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+		}
+
+		// Native Async GZIP decompression via browser's Decompression Streams API
+		async function decompressCode(safeBase64) {
+			try {
+				let base64 = safeBase64.replace(/-/g, '+').replace(/_/g, '/');
+				while (base64.length % 4) {
+					base64 += '=';
+				}
+				const binary = atob(base64);
+				const bytes = new Uint8Array(binary.length);
+				for (let i = 0; i < binary.length; i++) {
+					bytes[i] = binary.charCodeAt(i);
+				}
+
+				const ds = new DecompressionStream("gzip");
+				const writer = ds.writable.getWriter();
+				writer.write(bytes);
+				writer.close();
+
+				const response = new Response(ds.readable);
+				const arrayBuffer = await response.arrayBuffer();
+				return new TextDecoder().decode(arrayBuffer);
+			} catch (err) {
+				console.error("Native decompression failed or parameters are malformed:", err);
+				return null;
+			}
+		}
+
+		async function getSharedCode() {
+			const hash = window.location.hash;
+			if (hash && hash.startsWith("#code=")) {
+				const encoded = hash.substring(6);
+				return await decompressCode(encoded);
+			}
+			return null;
+		}
+
+		// Layout Memory Preferences (Separate variables for Desktop vs Mobile)
+		let leftPercentage = 50;
+		let topPercentage = 50;
+
+		const savedLeftPercentage = localStorage.getItem("c3_playground_left_percentage");
+		if (savedLeftPercentage !== null) {
+			leftPercentage = parseFloat(savedLeftPercentage);
+		}
+
+		const savedTopPercentage = localStorage.getItem("c3_playground_top_percentage");
+		if (savedTopPercentage !== null) {
+			topPercentage = parseFloat(savedTopPercentage);
+		}
+
+		// Apply grid dimensions based on viewport size
+		function applyLayout() {
+			if (window.innerWidth <= 768) {
+				mainLayout.style.gridTemplateColumns = "1fr";
+				mainLayout.style.gridTemplateRows = `${topPercentage}% 10px 1fr`;
+			} else {
+				mainLayout.style.gridTemplateRows = "1fr";
+				mainLayout.style.gridTemplateColumns = `${leftPercentage}% 10px 1fr`;
+			}
+		}
+
+		// Run application setup
+		applyLayout();
+
+		// Bind resize context to redraw bounds gracefully on viewport rotation
+		window.addEventListener("resize", () => {
+			applyLayout();
+			if (editor) {
+				editor.layout();
+			}
+		});
+
+		function setStatus(text, stateClass) {
+			console.log(`[Status Change] ${text}`);
+			statusEl.textContent = text;
+			statusEl.className = "status-badge " + (stateClass || "");
+		}
+
+		function flattenDocgen(db) {
+			const symbols = [];
+			if (!db || !db.modules) {
+				console.warn("[Flatten Database] Invalid database structural payload received:", db);
+				return symbols;
+			}
+
+			for (const [moduleName, mod] of Object.entries(db.modules)) {
+				const categories = ['functions', 'macros', 'types', 'globals', 'methods', 'constants', 'variables'];
+				for (const cat of categories) {
+					if (Array.isArray(mod[cat])) {
+						for (const item of mod[cat]) {
+							symbols.push({
+								...item,
+								module: moduleName,
+								category: cat
+							});
+						}
+					}
+				}
+			}
+			console.log(`[Flatten Database] Successfully mapped ${symbols.length} global and standard library symbols.`);
+			return symbols;
+		}
+
+		// Triggers silent, background symbol index compile
+		function queueDocgenUpdate() {
+			if (isDocgenTaskRunning) {
+				console.log("[Diagnostics] Docgen task already running, deferring new request.");
+				clearTimeout(docgenTimeout);
+				docgenTimeout = setTimeout(() => {
+					console.log("[Diagnostics] Retrying deferred background docgen...");
+					triggerSilentDocgen();
+				}, 800);
+				return;
+			}
+
+			clearTimeout(docgenTimeout);
+			docgenTimeout = setTimeout(() => {
+				console.log("[Diagnostics] Triggering background compile for symbol documentation...");
+				triggerSilentDocgen();
+			}, 800);
+		}
+
+		function getFullIdentifierAt(model, position) {
+			const lineContent = model.getLineContent(position.lineNumber);
+			const col = position.column;
+			const regex = /[a-zA-Z_0-9]+(?:::[a-zA-Z_0-9]+|(?:\.[a-zA-Z_0-9]+))*/g;
+			let match;
+			while ((match = regex.exec(lineContent)) !== null) {
+				const start = match.index + 1;
+				const end = start + match[0].length;
+				if (col >= start && col <= end) {
+					return match[0];
+				}
+			}
+			const word = model.getWordAtPosition(position);
+			return word ? word.word : "";
+		}
+
+		function findSymbols(fullId) {
+			if (!docDbSymbols || docDbSymbols.length === 0 || !fullId) {
+				return [];
+			}
+
+			const normalizedId = fullId.replace(/\./g, '::');
+			let matches = docDbSymbols.filter(s => {
+				const uidNorm = s.uid.replace(/\./g, '::');
+				return uidNorm === normalizedId || uidNorm.endsWith('::' + normalizedId);
+			});
+
+			if (matches.length > 0) {
+				return matches;
+			}
+
+			const namePart = fullId.split(/::|\./).pop();
+			const fallbackMatches = docDbSymbols.filter(s => s.name === namePart);
+			return fallbackMatches;
+		}
+
+		// Track Canvas Event loops
+		let activeCanvasLoopId = null;
+
+		// Rebuilds C3 declarations for display context
+		function getSymbolSignature(sym) {
+			if (!sym) return null;
+
+			if (sym.category === 'functions' || sym.category === 'methods' || sym.kind === 'function' || sym.kind === 'method') {
+				const retType = sym.return_type ? sym.return_type.name : 'void';
+				const params = (sym.members || []).map(m => {
+					const t = m.type ? m.type.name : '';
+					return t ? `${t} ${m.name}` : m.name;
+				}).join(', ');
+				return `fn ${retType} ${sym.name}(${params})`;
+			}
+
+			if (sym.category === 'macros' || sym.kind === 'macro') {
+				const isAtMacro = sym.is_at_macro;
+				const namePrefix = isAtMacro && !sym.name.startsWith('@') ? '@' : '';
+				const retType = sym.return_type ? sym.return_type.name + ' ' : '';
+				const params = (sym.members || []).map(m => {
+					const t = m.type ? m.type.name : '';
+					return t ? `${t} ${m.name}` : m.name;
+				}).join(', ');
+				return `macro ${retType}${namePrefix}${sym.name}(${params})`;
+			}
+
+			if (sym.category === 'variables' || sym.category === 'globals' || sym.category === 'constants' || sym.kind === 'constant' || sym.kind === 'global variable') {
+				const isConst = sym.is_const;
+				const typeName = sym.type ? sym.type.name : '';
+				const prefix = isConst ? 'const ' : 'extern ';
+				const typeStr = typeName ? typeName + ' ' : '';
+				const valStr = sym.value !== undefined && sym.value !== null ? ` = ${sym.value}` : '';
+				return `${prefix}${typeStr}${sym.name}${valStr}`;
+			}
+
+			if (sym.kind === 'union' || sym.kind === 'struct' || sym.kind === 'enum' || sym.kind === 'bitstruct' || sym.kind === 'constdef') {
+				const baseType = sym.base_type ? ` : ${sym.base_type.name}` : '';
+				return `${sym.kind} ${sym.name}${baseType}`;
+			}
+
+			return null;
+		}
+
+		// Maps classification data to IDE symbols
+		function getCompletionItemKind(sym) {
+			const category = sym.category;
+			const kind = sym.kind;
+			if (category === 'functions' || kind === 'function') return monaco.languages.CompletionItemKind.Function;
+			if (category === 'methods' || kind === 'method') return monaco.languages.CompletionItemKind.Method;
+			if (category === 'macros' || kind === 'macro') return monaco.languages.CompletionItemKind.Snippet;
+			if (kind === 'struct' || kind === 'union') return monaco.languages.CompletionItemKind.Struct;
+			if (kind === 'enum') return monaco.languages.CompletionItemKind.Enum;
+			if (kind === 'bitstruct') return monaco.languages.CompletionItemKind.Class;
+			if (category === 'constants' || kind === 'constant') return monaco.languages.CompletionItemKind.Constant;
+			if (category === 'variables' || category === 'globals' || kind === 'global variable') return monaco.languages.CompletionItemKind.Variable;
+			return monaco.languages.CompletionItemKind.Field;
+		}
+
+		// Checks if a symbol lives in a namespace prefix
+		function matchesNamespace(sym, typedNamespace) {
+			if (!sym || !sym.uid) return false;
+
+			const nsLower = typedNamespace.toLowerCase();
+			const uidLower = sym.uid.toLowerCase();
+
+			const parts = uidLower.split('::');
+			if (parts.length <= 1) return false;
+
+			const symNamespace = parts.slice(0, -1).join('::');
+
+			if (symNamespace === nsLower) return true;
+			if (symNamespace.endsWith('::' + nsLower)) return true;
+			if (nsLower.endsWith('::' + symNamespace)) return true;
+
+			return false;
+		}
+
+		// Resolves context-dependent insertion strings
+		function getSymbolCompletionNames(sym) {
+			const uid = sym.uid || '';
+			const isLocal = sym.file && !sym.file.includes('lib/std/') && !sym.file.includes('compiler_rt');
+
+			if (isLocal) {
+				const parts = uid.split('::');
+				const shortName = parts[parts.length - 1];
+				return {
+					insertText: shortName,
+					label: shortName,
+					filterText: shortName
+				};
+			}
+
+			const parts = uid.split('::');
+			const shortName = parts[parts.length - 1];
+
+			if (uid.startsWith('std::')) {
+				if (parts.length >= 3) {
+					const shortQualified = parts[parts.length - 2] + '::' + parts[parts.length - 1];
+					return {
+						insertText: shortQualified,
+						label: shortQualified,
+						filterText: parts[parts.length - 1]
+					};
+				} else {
+					const shortQualified = parts[parts.length - 1];
+					return {
+						insertText: shortQualified,
+						label: shortQualified,
+						filterText: shortQualified
+					};
+				}
+			}
+
+			return {
+				insertText: uid,
+				label: uid,
+				filterText: shortName
+			};
+		}
+
+		// Lightweight upward scanner to resolve local variable types, values, and declarations
+		function findLocalVariable(model, position, word) {
+			if (!model || !position || !word) return null;
+
+			const currentLine = position.lineNumber;
+			const wordRegex = new RegExp(`\\b${word}\\b`);
+
+			for (let i = currentLine; i >= 1; i--) {
+				const line = model.getLineContent(i);
+				const trimmed = line.trim();
+
+				if (trimmed.startsWith('module ')) {
+					break;
+				}
+
+				const declMatch = line.match(new RegExp(`\\b([a-zA-Z_0-9<>\\[\\]*?]+)\\s+(${word})\\b\\s*(?:[=,;]|$)`));
+				if (declMatch) {
+					const type = declMatch[1];
+					return {
+						name: word,
+						kind: 'local variable',
+						type: type,
+						line: i,
+						column: line.indexOf(word) + 1,
+						docs: `Local variable of type \`${type}\``
+					};
+				}
+
+				const foreachMatch = line.match(/foreach\s*\(\s*([a-zA-Z_0-9]+)\s*(?:,\s*([a-zA-Z_0-9]+))?\s*:\s*([a-zA-Z_0-9_]+)/);
+				if (foreachMatch) {
+					const firstVar = foreachMatch[1];
+					const secondVar = foreachMatch[2];
+					const iterable = foreachMatch[3];
+
+					if (firstVar === word) {
+						return {
+							name: word,
+							kind: 'loop variable',
+							type: secondVar ? 'usz' : 'element',
+							line: i,
+							column: line.indexOf(word) + 1,
+							docs: `Loop variable inside \`foreach\` over \`${iterable}\``
+						};
+					} else if (secondVar === word) {
+						return {
+							name: word,
+							kind: 'loop variable',
+							type: 'element',
+							line: i,
+							column: line.indexOf(word) + 1,
+							docs: `Loop element variable inside \`foreach\` over \`${iterable}\``
+						};
+					}
+				}
+
+				const forMatch = line.match(new RegExp(`for\\s*\\(\\s*([a-zA-Z_0-9<>\\[\\]*?]+)\\s+(${word})\\b`));
+				if (forMatch) {
+					const type = forMatch[1];
+					return {
+						name: word,
+						kind: 'loop variable',
+						type: type,
+						line: i,
+						column: line.indexOf(word) + 1,
+						docs: `Loop iterator variable of type \`${type}\``
+					};
+				}
+
+				const fnMatch = line.match(/fn\s+([a-zA-Z_0-9*?]+)\s+([a-zA-Z_0-9]+)\s*\(([^)]*)\)/);
+				if (fnMatch) {
+					const paramsText = fnMatch[3];
+					const params = paramsText.split(',').map(p => p.trim());
+					for (const param of params) {
+						const parts = param.split(/\s+/);
+						if (parts.length >= 2) {
+							const paramName = parts[parts.length - 1];
+							const paramType = parts.slice(0, -1).join(' ');
+							if (paramName === word) {
+								return {
+									name: word,
+									kind: 'parameter',
+									type: paramType,
+									line: i,
+									column: line.indexOf(word) + 1,
+									docs: `Parameter of function \`${fnMatch[2]}\` of type \`${paramType}\``
+								};
+							}
+						}
+					}
+					break;
+				}
+			}
+			return null;
+		}
+
+		// Renders layout markers on context hover, incorporating standard library doc fragments
+		function formatSymbolHover(sym) {
+			const contents = [];
+			const signature = getSymbolSignature(sym);
+			if (signature) {
+				contents.push({ value: `\`\`\`c3\n${signature}\n\`\`\`` });
+			} else {
+				contents.push({ value: `**${sym.kind || 'definition'}** \`${sym.uid}\`` });
+			}
+
+			if (sym.docs && sym.docs.text) {
+				contents.push({ value: sym.docs.text });
+			}
+
+			if (sym.docs && Array.isArray(sym.docs.params) && sym.docs.params.length > 0) {
+				let paramText = `**Parameters:**\n`;
+				for (const p of sym.docs.params) {
+					paramText += `* \`${p.name}\`: ${p.description || ''}\n`;
+				}
+				contents.push({ value: paramText });
+			}
+
+			if (sym.docs && sym.docs.return) {
+				contents.push({ value: `**Returns:** ${sym.docs.return}` });
+			}
+
+			let footerParts = [];
+			if (sym.file) {
+				footerParts.push(`*Defined in \`${sym.file}\`*`);
+			}
+
+			// If the symbol is part of the standard library, append a clickable doc link on a new line
+			if (sym.uid && sym.uid.startsWith('std::')) {
+				const docUrl = `https://c3-lang.org/standard-library/docs.html#${sym.uid}`;
+				footerParts.push(`[Open Stdlib Docs ↗](${docUrl})`);
+			}
+
+			if (footerParts.length > 0) {
+				contents.push({ value: footerParts.join('\n\n') });
+			}
+
+			return { contents: contents };
+		}
+
+		function formatConsoleOutput(text) {
+			let escaped = text
+				.replace(/&/g, "&amp;")
+				.replace(/</g, "&lt;")
+				.replace(/>/g, "&gt;");
+
+			const linkRegex = /(?:\/main\.c3|main\.c3):(\d+)(?::(\d+))?/g;
+
+			return escaped.replace(linkRegex, (match, line, col) => {
+				const c = col ? col : 1;
+				return `<span class="console-link" style="color: #38bdf8; text-decoration: none; cursor: pointer; font-weight: bold;" data-line="${line}" data-col="${c}">${match}</span>`;
+			});
+		}
+
+		function parseCompilerErrors(stderrText) {
+			const markers = [];
+			const lines = stderrText.split('\n');
+			const errorRegex = /(?:\/main\.c3|main\.c3):(\d+)(?::(\d+))?\)?\s*(Error|Warning):\s*(.*)/i;
+			const model = editor.getModel();
+
+			for (const line of lines) {
+				const match = line.match(errorRegex);
+				if (match) {
+					const lineNum = parseInt(match[1], 10);
+					const colNum = match[2] ? parseInt(match[2], 10) : 1;
+					const severityStr = match[3].toLowerCase();
+					const message = match[4].trim();
+
+					const severity = severityStr === "error"
+						? monaco.MarkerSeverity.Error
+						: monaco.MarkerSeverity.Warning;
+
+					let endColumn = colNum + 1;
+					if (model) {
+						const wordInfo = model.getWordAtPosition({ lineNumber: lineNum, column: colNum });
+						if (wordInfo) {
+							endColumn = wordInfo.endColumn;
+						}
+					}
+
+					markers.push({
+						severity: severity,
+						message: message,
+						startLineNumber: lineNum,
+						startColumn: colNum,
+						endLineNumber: lineNum,
+						endColumn: endColumn
+					});
+				}
+			}
+			return markers;
+		}
+
+		function definition() {
+			return {
+				defaultToken: 'invalid',
+
+				keywords: [
+					'alias', 'assert', 'asm', 'attrdef', 'bitstruct', 'break', 'case', 'catch', 'const',
+					'constdef', 'continue', 'default', 'defer', 'do', 'else', 'enum', 'extern', 'false',
+					'fault', 'faultdef', 'for', 'foreach', 'foreach_r', 'fn', 'if', 'import', 'inline',
+					'interface', 'lengthof', 'macro', 'module', 'nextcase', 'null', 'return', 'scope',
+					'static', 'struct', 'switch', 'tlocal', 'true', 'try', 'typedef', 'union', 'var', 'while',
+					'$assert', '$case', '$concat', '$default', '$defined', '$echo', '$else', '$embed',
+					'$endfor', '$endforeach', '$endif', '$endswitch', '$error', '$eval', '$exec', '$expand',
+					'$feature', '$for', '$foreach', '$if', '$include', '$reflect', '$stringify', '$switch',
+					'$varef', '$vaarg', '$vaexpr',
+					'$$abs', '$$acos', '$$asin', '$$atan', '$$any_make', '$$atomic_load', '$$atomic_store',
+					'$$atomic_fetch_exchange', '$$atomic_fetch_add', '$$atomic_fetch_sub', '$$atomic_fetch_and',
+					'$$atomic_fetch_nand', '$$atomic_fetch_or', '$$atomic_fetch_xor', '$$atomic_fetch_max',
+					'$$atomic_fetch_min', '$$atomic_fetch_inc_wrap', '$$atomic_fetch_dec_wrap', '$$bitreverse',
+					'$$breakpoint', '$$bswap', '$$ceil', '$$compare_exchange', '$$copysign', '$$cos', '$$cosh',
+					'$$clz', '$$ctz', '$$add', '$$div', '$$mod', '$$mul', '$$neg', '$$sub', '$$exp', '$$exp2',
+					'$$exp10', '$$expect', '$$expect_with_probability', '$$fence', '$$floor', '$$fma',
+					'$$fmuladd', '$$frameaddress', '$$fshl', '$$fshr', '$$gather', '$$get_rounding_mode',
+					'$$int_to_mask', '$$log', '$$log2', '$$log10', '$$matrix_mul', '$$matrix_transpose',
+					'$$mask_to_int', '$$masked_load', '$$masked_store', '$$max', '$$memcpy', '$$memcpy_inline',
+					'$$memmove', '$$memset', '$$memset_inline', '$$min', '$$nearbyint', '$$overflow_add',
+					'$$overflow_mul', '$$overflow_sub', '$$popcount', '$$pow', '$$pow_int', '$$prefetch',
+					'$$reduce_add', '$$reduce_and', '$$reduce_fadd', '$$reduce_fmul', '$$reduce_max',
+					'$$reduce_min', '$$reduce_mul', '$$reduce_or', '$$reduce_xor', '$$reverse', '$$returnaddress',
+					'$$rint', '$$rnd', '$$round', '$$roundeven', '$$sat_add', '$$sat_shl', '$$sat_sub',
+					'$$sat_mul', '$$scatter', '$$select', '$$set_rounding_mode', '$$sprintf', '$$str_find',
+					'$$str_hash', '$$str_lower', '$$str_pascalcase', '$$str_replace', '$$str_upper',
+					'$$str_snakecase', '$$swizzle', '$$swizzle2', '$$sin', '$$sinh', '$$sqrt', '$$syscall',
+					'$$sysclock', '$$tan', '$$tanh', '$$trap', '$$trunc', '$$unaligned_load', '$$unaligned_store',
+					'$$unreachable', '$$veccomplt', '$$veccomple', '$$veccompgt', '$$veccompge', '$$veccompeq',
+					'$$veccompne', '$$volatile_load', '$$volatile_store', '$$wasm_memory_size', '$$wasm_memory_grow',
+					'$$wstr16', '$$wstr32', '$$DATE', '$$FILE', '$$FILEPATH', '$$FUNC', '$$FUNCTION', '$$LINE',
+					'$$LINE_RAW', '$$MODULE', '$$BENCHMARK_NAMES', '$$BENCHMARK_FNS', '$$TEST_NAMES', '$$TEST_FNS',
+					'$$TIME',
+					'excuse', 'faultconst', 'faultset', 'cenum', 'constset', 'attrgroup', 'attrmacro', 'distinct'
+				],
+				typeKeywords: [
+					'any', 'void', 'bool', 'char', 'double', 'float16', 'bfloat', 'bfloat16', 'float128',
+					'int128', 'int', 'ichar', 'iptr', 'sz', 'long', 'short', 'uint128', 'uint', 'ulong',
+					'uptr', 'ushort', 'usz', 'float', 'typeid', 'fault', '$Typeof', '$Typefrom'
+				],
+				operators: [
+					'+', '-', '/', '*', '=', '^', '&', '?', '|', '!', '>', '<', '%', '??', '!!', '?:',
+					'???', '++', '--', '<<', '>>', '+=', '-=', '/=', '*=', '==', '!=', '^=', '&=', '|=',
+					'>=', '<=', '%=', '<<=', '>>=', '+++=', '+++', '&&&', '|||', '~', '::', '->', '!!!',
+					'[<', '>]', '=>'
+				],
+				attributes: [
+					'@align', '@benchmark', '@bigendian', '@builtin', '@cdecl', '@cname', '@deprecated',
+					'@dynamic', '@export', '@extname', '@inline', '@interface', '@littleendian', '@local',
+					'@maydiscard', '@mustinit', '@naked', '@nodiscard', '@noinit', '@noinline', '@noreturn',
+					'@nostrip', '@obfuscate', '@operator', '@overlap', '@packed', '@priority', '@private',
+					'@public', '@pure', '@reflect', '@section', '@stdcall', '@test', '@unused', '@used',
+					'@veccall', '@wasm', '@weak', '@winmain'
+				],
+
+				symbols: /[=><!~?:&|+\-*/^%]+/,
+				escapes: /\\(?:[0abefnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
+
+				tokenizer: {
+					root: [
+						[
+							/@[a-zA-Z_$][\w$]*/,
+							{
+								cases: {
+									'@attributes': 'keyword',
+									'@default': 'annotation',
+								},
+							},
+						],
+						[/\$[a-zA-Z_$][\w$]*/, 'keyword'],
+						[/[a-z_$][\w$]*(?=\s*\()/, 'function'],
+						[/[a-z_$][\w$]*(?=\s*::)/, 'keyword'],
+						[/[iu]\d+/, 'keyword'],
+						[
+							/[a-z_$][\w$]*/,
+							{
+								cases: {
+									'@typeKeywords': 'type',
+									'@keywords': 'keyword',
+									'@default': 'identifier',
+								},
+							},
+						],
+						[/[A-Z][\w$]*/, 'type.identifier'],
+						{ include: '@whitespace' },
+						[/#![^\n]*$/, 'comment'],
+						[/[{}()[\]]/, '@brackets'],
+						[/[<>](?!@symbols)/, '@brackets'],
+						[
+							/@symbols/,
+							{
+								cases: {
+									'@operators': 'operator',
+									'@default': '',
+								},
+							},
+						],
+						[/\d*\.\d+([eE][-+]?\d+)?[fFdD]?/, 'number.float'],
+						[/0[xX][0-9a-fA-F_]*[0-9a-fA-F][Ll]?/, 'number.hex'],
+						[/0o[0-7_]*[0-7][Ll]?/, 'number.octal'],
+						[/0[bB][0-1_]*[0-1][Ll]?/, 'number.binary'],
+						[/\d+/, 'number'],
+						[/[;,.]/, 'delimiter'],
+						[/"([^"\\]|\\.)*$/, 'string.invalid'],
+						[/(?:c|x|b64)?\\\\.*$/, 'string'],
+						[/(?:c|x|b64)?"/, 'string', '@string'],
+						[/(?:c|x|b64)?`/, 'string', '@rawString'],
+						[/(?:c|x|b64)?'[^\\']*'/, 'string'],
+						[/(?:c|x|b64)?(')(@escapes)(')/, ['string', 'string.escape', 'string']],
+						[/'/, 'string.invalid']
+					],
+
+					whitespace: [
+						[/[ \r\n]+/, 'white'],
+						[/\/\*/, 'comment', '@comment'],
+						[/<\*/, 'contract', '@contract'],
+						[/\/\/.*$/, 'comment'],
+						[/\t/, 'comment.invalid']
+					],
+
+					comment: [
+						[/[^/*]+/, 'comment'],
+						[/\/\*/, 'comment', '@comment'],
+						[/\*\//, 'comment', '@pop'],
+						[/\*>/, 'comment', '@pop'],
+						[/[/*]/, 'comment']
+					],
+
+					contract: [
+						[/[^/*]+/, 'contract'],
+						[/\*>/, 'contract', '@pop'],
+						[/[/*]/, 'contract'],
+						[/\t/, 'contract.invalid']
+					],
+
+					string: [
+						[/[^\\"]+/, 'string'],
+						[/@escapes/, 'string.escape'],
+						[/\\./, 'string.escape.invalid'],
+						[/"/, 'string', '@pop']
+					],
+
+					rawString: [
+						[/``/, 'string.escape'],
+						[/[^`]+/, 'string'],
+						[/`/, 'string', '@pop']
+					]
+				}
+			};
+		}
+
+		require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs' } });
+
+		require(['vs/editor/editor.main'], async function () {
+			monaco.languages.register({ id: 'c3' });
+			monaco.languages.setMonarchTokensProvider('c3', definition());
+
+			monaco.languages.setLanguageConfiguration('c3', {
+				comments: {
+					lineComment: '//',
+					blockComment: ['/*', '*/'],
+				},
+				brackets: [
+					['{', '}'],
+					['[', ']'],
+					['(', ')']
+				],
+				autoClosingPairs: [
+					{ open: '{', close: '}' },
+					{ open: '[', close: ']' },
+					{ open: '(', close: ')' },
+					{ open: '"', close: '"', notIn: ['string'] },
+					{ open: "'", close: "'", notIn: ['string', 'comment'] },
+					{ open: '`', close: '`', notIn: ['string', 'comment'] }
+				],
+				surroundingPairs: [
+					{ open: '{', close: '}' },
+					{ open: '[', close: ']' },
+					{ open: '(', close: ')' },
+					{ open: '"', close: '"' },
+					{ open: "'", close: "'" },
+					{ open: '`', close: '`' }
+				]
+			});
+
+			monaco.languages.registerCompletionItemProvider('c3', {
+				triggerCharacters: ['@', '$', ':'],
+
+				provideCompletionItems: function (model, position) {
+					const word = model.getWordUntilPosition(position);
+
+					let range = {
+						startLineNumber: position.lineNumber,
+						endLineNumber: position.lineNumber,
+						startColumn: word.startColumn,
+						endColumn: word.endColumn
+					};
+
+					const lineContent = model.getLineContent(position.lineNumber);
+					const precedingCharIndex = word.startColumn - 2;
+					if (precedingCharIndex >= 0 && (lineContent[precedingCharIndex] === '@' || lineContent[precedingCharIndex] === '$')) {
+						range.startColumn -= 1;
+					}
+
+					const c3Def = definition();
+					const suggestions = [];
+
+					const lineUntilPosition = lineContent.substring(0, position.column - 1);
+					const namespaceMatch = lineUntilPosition.match(/([a-zA-Z_0-9]+(?:::[a-zA-Z_0-9]+)*)::$/);
+
+					let typedNamespace = "";
+					if (namespaceMatch) {
+						typedNamespace = namespaceMatch[1];
+					}
+
+					if (typedNamespace) {
+						docDbSymbols.forEach(sym => {
+							if (matchesNamespace(sym, typedNamespace)) {
+								const signature = getSymbolSignature(sym);
+								const docText = sym.docs ? (typeof sym.docs === 'string' ? sym.docs : (sym.docs.text || '')) : '';
+
+								suggestions.push({
+									label: sym.name,
+									kind: getCompletionItemKind(sym),
+									insertText: sym.name,
+									range: range,
+									detail: signature || sym.uid,
+									documentation: docText ? { value: docText } : undefined
+								});
+							}
+						});
+					} else {
+						c3Def.keywords.forEach(keyword => {
+							suggestions.push({
+								label: keyword,
+								kind: monaco.languages.CompletionItemKind.Keyword,
+								insertText: keyword,
+								range: range
+							});
+						});
+
+						c3Def.typeKeywords.forEach(type => {
+							suggestions.push({
+								label: type,
+								kind: monaco.languages.CompletionItemKind.Class,
+								insertText: type,
+								range: range
+							});
+						});
+
+						c3Def.attributes.forEach(attr => {
+							suggestions.push({
+								label: attr,
+								kind: monaco.languages.CompletionItemKind.Property,
+								insertText: attr,
+								range: range
+							});
+						});
+
+						const shortNamespaces = new Set();
+						docDbSymbols.forEach(s => {
+							if (s.uid && s.uid.startsWith('std::')) {
+								const parts = s.uid.split('::');
+								if (parts.length >= 3) {
+									shortNamespaces.add(parts[parts.length - 2]);
+								}
+							} else if (s.uid && s.uid.includes('::')) {
+								const parts = s.uid.split('::');
+								if (parts.length >= 2) {
+									shortNamespaces.add(parts[0]);
+								}
+							}
+						});
+
+						shortNamespaces.forEach(ns => {
+							suggestions.push({
+								label: ns,
+								kind: monaco.languages.CompletionItemKind.Module,
+								insertText: ns,
+								range: range,
+								detail: `Module ${ns}`,
+								documentation: `Standard library module ${ns}`
+							});
+						});
+
+						docDbSymbols.forEach(sym => {
+							const compNames = getSymbolCompletionNames(sym);
+							const signature = getSymbolSignature(sym);
+							const docText = sym.docs ? (typeof sym.docs === 'string' ? sym.docs : (sym.docs.text || '')) : '';
+
+							suggestions.push({
+								label: compNames.label,
+								kind: getCompletionItemKind(sym),
+								insertText: compNames.insertText,
+								filterText: compNames.filterText,
+								range: range,
+								detail: signature || sym.uid,
+								documentation: docText ? { value: docText } : undefined
+							});
+						});
+					}
+
+					return { suggestions: suggestions };
+				}
+			});
+
+			monaco.languages.registerHoverProvider('c3', {
+				provideHover: function (model, position) {
+					const fullId = getFullIdentifierAt(model, position);
+					console.log(`[Monaco Diagnostics] User hovered over word: "${fullId}"`);
+
+					// 1. Try to find a global database symbol match first
+					const matches = findSymbols(fullId);
+					if (matches.length > 0) {
+						return formatSymbolHover(matches[0]);
+					}
+
+					// 2. Local fallback upward scan (types, arrays, loop indexes, parameters)
+					const localSym = findLocalVariable(model, position, fullId);
+					if (localSym) {
+						return {
+							contents: [
+								{ value: `\`\`\`c3\n${localSym.kind} ${localSym.type} ${localSym.name}\n\`\`\`` },
+								{ value: localSym.docs },
+								{ value: `*Declared on line ${localSym.line}*` }
+							]
+						};
+					}
+					return null;
+				}
+			});
+
+			monaco.languages.registerDefinitionProvider('c3', {
+				provideDefinition: function (model, position) {
+					const fullId = getFullIdentifierAt(model, position);
+					console.log(`[Monaco Diagnostics] User requested definition for: "${fullId}"`);
+
+					// 1. Check database definitions first
+					const matches = findSymbols(fullId);
+					const localSym = matches.find(s => s.file && s.file.includes('main.c3'));
+					if (localSym) {
+						console.log(`[Monaco Diagnostics] Matching local definition found: ${localSym.file}`);
+						const fileMatch = localSym.file.match(/(?:^|\/)(main\.c3):(\d+):(\d+)/);
+						if (fileMatch) {
+							const line = parseInt(fileMatch[2], 10);
+							const col = parseInt(fileMatch[3], 10);
+							return {
+								uri: model.uri,
+								range: new monaco.Range(line, col, line, col)
+							};
+						}
+					}
+
+					// 2. Scan upwards inside the active file scope for local variables
+					const localVariable = findLocalVariable(model, position, fullId);
+					if (localVariable) {
+						console.log(`[Monaco Diagnostics] Jumper navigating to local variable declaration: line ${localVariable.line}`);
+						return {
+							uri: model.uri,
+							range: new monaco.Range(localVariable.line, localVariable.column, localVariable.line, localVariable.column + fullId.length)
+						};
+					}
+
+					// 3. Fallback to opening std library website specs
+					if (isNavigating) {
+						const stdSym = matches.find(s => s.file && !s.file.includes('main.c3'));
+						if (stdSym) {
+							const docUrl = `https://c3-lang.org/standard-library/docs.html#${stdSym.uid}`;
+							console.log(`[Monaco Diagnostics] Opening external C3 standard library docs: ${docUrl}`);
+							window.open(docUrl, '_blank');
+						} else {
+							console.warn(`[Monaco Diagnostics] No definition match found for: "${fullId}"`);
+						}
+					}
+					return null;
+				}
+			});
+
+			// Syntax highlighting custom rules matched directly to standard c3-lang.org slate theme specs
+			monaco.editor.defineTheme('c3PlaygroundTheme', {
+				base: 'vs-dark',
+				inherit: true,
+				rules: [
+					{ token: 'keyword', foreground: 'ff7b72', fontStyle: 'bold' },
+					{ token: 'annotation', foreground: 'ffa657' },
+					{ token: 'type.identifier', foreground: '7ee787' },
+					{ token: 'type', foreground: '7ee787' },
+					{ token: 'comment', foreground: '8b949e', fontStyle: 'italic' },
+					{ token: 'string', foreground: 'a5d6ff' },
+					{ token: 'number', foreground: '79c0ff' },
+					{ token: 'operator', foreground: 'ff7b72' },
+					{ token: 'function', foreground: 'd2a8ff' },
+					{ token: 'identifier', foreground: 'C5E478' },
+					{ token: 'delimiter', foreground: 'c9d1d9' }
+				],
+				colors: {
+					'editor.background': '#1e293b',
+					'editor.foreground': '#D39DD6',
+					'editor.lineHighlightBackground': '#33415544',
+					'editorCursor.foreground': '#38bdf8',
+					'editor.selectionBackground': '#38bdf822',
+					'editorLineNumber.foreground': '#475569',
+					'editorLineNumber.activeForeground': '#38bdf8'
+				}
+			});
+
+			// Determine the default fallback example (the first one defined in the HTML)
+			const exampleKeys = Object.keys(examples);
+			const defaultExampleKey = exampleKeys[0] || "";
+
+			const savedCode = localStorage.getItem("c3_playground_code");
+			const savedExample = localStorage.getItem("c3_playground_selected_example");
+			const sharedCode = await getSharedCode();
+
+			const initialCodeValue = sharedCode !== null ? sharedCode : (savedCode !== null ? savedCode : examples[defaultExampleKey]);
+
+			if (sharedCode !== null) {
+				exampleSelect.value = "";
+			} else if (savedExample && examples[savedExample]) {
+				exampleSelect.value = savedExample;
+			} else {
+				exampleSelect.value = defaultExampleKey;
+			}
+
+			editor = monaco.editor.create(document.getElementById("code"), {
+				value: initialCodeValue,
+				language: 'c3',
+				theme: 'c3PlaygroundTheme',
+				automaticLayout: true,
+				fontSize: 14,
+				lineHeight: 22,
+				fontFamily: "'Cascadia Code', 'Fira Code', Consolas, Monaco, monospace",
+				tabSize: 4,
+				insertSpaces: false,
+				detectIndentation: false,
+				minimap: { enabled: true },
+				unicodeHighlight: {
+					allowedLocales: {
+						el: true
+					}
+				}
+			});
+
+			editor.layout();
+			editor.focus();
+
+			editor.onDidChangeModelContent(() => {
+				localStorage.setItem("c3_playground_code", editor.getValue());
+				queueDocgenUpdate();
+			});
+
+			editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function () {
+				if (!compileBtn.disabled) {
+					compileBtn.click();
+				}
+			});
+
+			editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function () {
+				saveCodeToDisk();
+			});
+
+			exampleSelect.onchange = () => {
+				if (editor && examples[exampleSelect.value]) {
+					editor.setValue(examples[exampleSelect.value]);
+					localStorage.setItem("c3_playground_selected_example", exampleSelect.value);
+					localStorage.setItem("c3_playground_code", examples[exampleSelect.value]);
+					if (window.location.hash) {
+						history.replaceState(null, null, ' ');
+					}
+				}
+			};
+
+			loadAndCompileCompiler();
+		});
+
+		let isAnyCompilerTaskRunning = false;
+		let activeWorker = null;
+		let activeTaskType = null;
+		let compilerWorkerBlobUrl = null;
+
+		async function executeCompilerTask(taskType, sourceCode, onMessageCallback) {
+			if (isAnyCompilerTaskRunning) {
+				// Abort low priority background operations if a new process requested it
+				if (activeWorker && (activeTaskType === "docgen" || activeTaskType === "version")) {
+					console.log(`[Execute Task] Forcibly terminating background task '${activeTaskType}' to start '${taskType}'.`);
+					activeWorker.terminate();
+					isAnyCompilerTaskRunning = false;
+					activeWorker = null;
+					activeTaskType = null;
+				} else {
+					console.warn(`[Execute Task] A compiler task is already running. Skipping task of type '${taskType}'.`);
+					return;
+				}
+			}
+			isAnyCompilerTaskRunning = true;
+			activeTaskType = taskType;
+
+			if (taskType === "compile") {
+				compileBtn.disabled = true;
+				setStatus("Compiling...", "compiling");
+			}
+
+			console.log(`[Execute Task] Spawning new worker for task type: '${taskType}'`);
+			if (!c3WorkerJsText) {
+				console.error("[Execute Task] c3WorkerJsText is not loaded!");
+				isAnyCompilerTaskRunning = false;
+				activeTaskType = null;
+				if (taskType === "compile") {
+					compileBtn.disabled = false;
+					setStatus("Compiler Ready", "ready");
+				}
+				return;
+			}
+
+			if (!compilerWorkerBlobUrl) {
+				const blob = new Blob([c3WorkerJsText], { type: 'application/javascript' });
+				compilerWorkerBlobUrl = URL.createObjectURL(blob);
+			}
+			const tempWorker = new Worker(compilerWorkerBlobUrl);
+			activeWorker = tempWorker;
+
+			let initComplete = false;
+
+			tempWorker.onerror = (err) => {
+				console.warn(`[Execute Task] Worker of type '${taskType}' crashed/aborted unexpectedly. Terminating.`, err);
+				tempWorker.terminate();
+				isAnyCompilerTaskRunning = false;
+				activeWorker = null;
+				activeTaskType = null;
+				if (taskType === "compile") {
+					outputEl.textContent += "\n[FATAL ERROR] Compiler worker crashed unexpectedly. Please refresh if issues persist.\n";
+					compileBtn.disabled = false;
+					setStatus("Compiler Ready", "ready");
+				} else {
+					docDbSymbols = [];
+				}
+				URL.revokeObjectURL(compilerWorkerBlobUrl);
+				compilerWorkerBlobUrl = null;
+
+				try {
+					onMessageCallback({ type: `${taskType}_failed`, error: err.message || 'Worker crash' }, tempWorker);
+				} catch (e) { }
+			};
+
+			tempWorker.onmessage = (e) => {
+				const msg = e.data;
+
+				if (msg.type === "ready") {
+					initComplete = true;
+					tempWorker.postMessage({ type: taskType, source: sourceCode });
+					return;
+				}
+
+				if (taskType === "compile" && (msg.type === "stdout" || msg.type === "stderr")) {
+					onMessageCallback(msg, tempWorker);
+					return;
+				}
+
+				let callbackFinished = false;
+				try {
+					tempWorker.terminate();
+					isAnyCompilerTaskRunning = false;
+					activeWorker = null;
+					activeTaskType = null;
+					if (taskType === "compile") {
+						compileBtn.disabled = false;
+						setStatus("Compiler Ready", "ready");
+					}
+					onMessageCallback(msg, tempWorker);
+					callbackFinished = true;
+				} finally {
+					if (!callbackFinished) {
+						tempWorker.terminate();
+						isAnyCompilerTaskRunning = false;
+						activeWorker = null;
+						activeTaskType = null;
+						if (taskType === "compile") {
+							compileBtn.disabled = false;
+							setStatus("Compiler Ready", "ready");
+						}
+					}
+				}
+			};
+
+			setTimeout(() => {
+				if (!initComplete) {
+					console.error(`[Execute Task] Worker of type '${taskType}' failed to initialize within timeout. Terminating.`);
+					tempWorker.terminate();
+					isAnyCompilerTaskRunning = false;
+					activeWorker = null;
+					activeTaskType = null;
+					if (taskType === "compile") {
+						outputEl.textContent += "\n[FATAL ERROR] Compiler worker failed to initialize. Please refresh.\n";
+						compileBtn.disabled = false;
+						setStatus("Compiler Ready", "ready");
+					} else {
+						docDbSymbols = [];
+					}
+					URL.revokeObjectURL(compilerWorkerBlobUrl);
+					compilerWorkerBlobUrl = null;
+
+					try {
+						onMessageCallback({ type: `${taskType}_failed`, error: 'Timeout' }, tempWorker);
+					} catch (e) { }
+				}
+			}, 5000);
+
+			tempWorker.postMessage({
+				type: "init_module",
+				wasmModule: compiledCompilerModule,
+				c3cJs: c3cJsText,
+				c3cData: c3cDataBuffer
+			});
+		}
+
+		let compilerVersionText = "";
+
+		async function queryCompilerVersion() {
+			return new Promise((resolve) => {
+				executeCompilerTask(
+					"version",
+					"",
+					(msg, tempWorker) => {
+						if (msg.type === "version_info") {
+							compilerVersionText = msg.text.trim();
+							// Render precisely aligned version payload inside the styled monospaced pre element
+							statusTooltipEl.textContent = compilerVersionText;
+							console.log("[Version query] Loaded compiler version info:\n", compilerVersionText);
+						} else if (msg.type === "version_failed") {
+							statusTooltipEl.textContent = "C3 Compiler Version information unavailable";
+							console.warn("[Version query] Failed to fetch compiler version.");
+						}
+						resolve();
+						return true;
+					}
+				);
+			});
+		}
+
+		async function loadAndCompileCompiler() {
+			compileBtn.disabled = true;
+			setStatus("Loading Compiler...", "");
+			try {
+				console.log("Starting parallel download of all compiler assets...");
+
+				const wasmFetchPromise = (async () => {
+					console.log("Fetching compiler module build/c3c.wasm...");
+						const res = await fetch('build/c3c.wasm');
+					if (!res.ok) throw new Error('Failed to fetch c3c.wasm (status: ' + res.status + ')');
+					const wasmBuffer = await res.arrayBuffer();
+
+					console.log("Compiling WebAssembly compiler module...");
+					compiledCompilerModule = await WebAssembly.compile(wasmBuffer);
+					console.log("WebAssembly compiler module compiled successfully!");
+				})();
+
+				const jsFetchPromise = fetch('build/c3c.js').then(res => {
+					if (!res.ok) throw new Error('Failed to fetch c3c.js');
+					return res.text();
+				}).then(text => {
+					c3cJsText = text;
+					console.log("Successfully loaded build/c3c.js text (" + text.length + " chars)");
+				});
+
+				const dataFetchPromise = fetch('build/c3c.data').then(res => {
+					if (!res.ok) throw new Error('Failed to fetch c3c.data');
+					return res.arrayBuffer();
+				}).then(buf => {
+					c3cDataBuffer = buf;
+					console.log("Successfully loaded build/c3c.data buffer (" + buf.byteLength + " bytes)");
+				});
+
+				const workerJsFetchPromise = fetch('c3-worker.js').then(res => {
+					if (!res.ok) throw new Error('Failed to fetch c3-worker.js');
+					return text = res.text();
+				}).then(text => {
+					c3WorkerJsText = text;
+					console.log("Successfully loaded c3-worker.js text (" + text.length + " chars)");
+				});
+
+				setStatus("Downloading files...", "");
+				await Promise.all([wasmFetchPromise, jsFetchPromise, dataFetchPromise, workerJsFetchPromise]);
+
+				queryCompilerVersion().then(() => {
+					setStatus("Compiler Ready", "ready");
+					compileBtn.disabled = false;
+					triggerSilentDocgen();
+				});
+
+			} catch (err) {
+				console.error("Fatal initialization error:", err);
+				setStatus("Initialization Failed", "");
+				outputEl.textContent += "\n[Fatal Error] Failed to initialize compiler: " + err.message + "\n";
+				compileBtn.disabled = true;
+			}
+		}
+
+		function triggerSilentDocgen() {
+			if (!editor) return;
+			const codeValue = editor.getValue();
+
+			executeCompilerTask(
+				"docgen",
+				codeValue,
+				(msg, tempWorker) => {
+					switch (msg.type) {
+						case "doc_db":
+							docDbSymbols = flattenDocgen(msg.db);
+							break;
+						case "docgen_failed":
+							docDbSymbols = [];
+							break;
+					}
+					return true;
+				}
+			);
+		}
+
+		compileBtn.onclick = () => {
+			if (!editor) return;
+			if (isAnyCompilerTaskRunning && activeTaskType === "compile") {
+				console.warn("[Compile Button] Ignoring click: a compilation task is already running.");
+				return;
+			}
+			const codeValue = editor.getValue();
+			console.log("Compile button clicked. Source length:", codeValue.length);
+
+			// Hide canvas and cancel current loop
+			document.getElementById("canvasContainer").style.display = "none";
+			if (activeCanvasLoopId) {
+				cancelAnimationFrame(activeCanvasLoopId);
+				activeCanvasLoopId = null;
+			}
+
+			rawConsoleOutput = "";
+			outputEl.innerHTML = "";
+			monaco.editor.setModelMarkers(editor.getModel(), "c3", []);
+
+			let compileStderrBuffer = [];
+
+			executeCompilerTask(
+				"compile",
+				codeValue,
+				async (msg, tempWorker) => {
+					switch (msg.type) {
+						case "stdout":
+							rawConsoleOutput += msg.text;
+							outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
+							break;
+						case "stderr":
+							rawConsoleOutput += "[ERR] " + msg.text;
+							compileStderrBuffer.push(msg.text);
+							outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
+							break;
+						case "compiled":
+							outputEl.innerHTML += "\n[WASM Linked: " + msg.wasm.byteLength + " bytes]\n";
+							await runEmscriptenProgram(msg.wasm);
+
+							const successMarkers = parseCompilerErrors(compileStderrBuffer.join('\n'));
+							monaco.editor.setModelMarkers(editor.getModel(), "c3", successMarkers);
+
+							triggerSilentDocgen();
+							return true;
+						case "failed":
+							outputEl.innerHTML += "\n[Compilation Failed]\n" + msg.error + "\n";
+
+							const failMarkers = parseCompilerErrors(compileStderrBuffer.join('\n'));
+							monaco.editor.setModelMarkers(editor.getModel(), "c3", failMarkers);
+							return true;
+					}
+					return false;
+				}
+			);
+		};
+
+		outputEl.addEventListener('click', (e) => {
+			const target = e.target;
+			if (target && target.classList.contains('console-link')) {
+				const line = parseInt(target.getAttribute('data-line'), 10);
+				const col = parseInt(target.getAttribute('data-col'), 10);
+				if (editor && line) {
+					console.log(`[Main Thread] Navigating editor to clicked console coordinate: line ${line}, col ${col}`);
+					editor.revealLineInCenter(line);
+					editor.setPosition({ lineNumber: line, column: col });
+					editor.focus();
+				}
+			}
+		});
+
+		clearBtn.onclick = () => {
+			outputEl.textContent = "";
+			docDbSymbols = [];
+			monaco.editor.setModelMarkers(editor.getModel(), "c3", []);
+		};
+
+		statusEl.onclick = () => {
+			if (statusEl.classList.contains("ready")) {
+				console.log("Manual compiler reset requested via status badge. Forcing symbol refresh and UI reset.");
+				outputEl.textContent = "Refreshing compiler context and symbols...\n";
+				docDbSymbols = [];
+				monaco.editor.setModelMarkers(editor.getModel(), "c3", []);
+				if (!isAnyCompilerTaskRunning) {
+					triggerSilentDocgen();
+				} else {
+					console.warn("[Reset Badge] A task is currently running. New symbol refresh will occur after it completes.");
+				}
+			}
+		};
+
+		// Layout Panel Resizing Mechanics
+		let isDragging = false;
+
+		resizer.addEventListener("mousedown", (e) => {
+			isDragging = true;
+			resizer.classList.add("dragging");
+			document.body.style.cursor = window.innerWidth <= 768 ? "row-resize" : "col-resize";
+			document.body.style.userSelect = "none";
+			e.preventDefault();
+		});
+
+		document.addEventListener("mousemove", (e) => {
+			if (!isDragging) return;
+			const containerRect = mainLayout.getBoundingClientRect();
+			const isMobile = window.innerWidth <= 768;
+
+			if (isMobile) {
+				const topHeight = e.clientY - containerRect.top;
+				topPercentage = (topHeight / containerRect.height) * 100;
+				topPercentage = Math.max(15, Math.min(85, topPercentage));
+
+				mainLayout.style.gridTemplateRows = `${topPercentage}% 10px 1fr`;
+				mainLayout.style.gridTemplateColumns = "1fr";
+			} else {
+				const leftWidth = e.clientX - containerRect.left;
+				leftPercentage = (leftWidth / containerRect.width) * 100;
+				leftPercentage = Math.max(15, Math.min(85, leftPercentage));
+
+				mainLayout.style.gridTemplateColumns = `${leftPercentage}% 10px 1fr`;
+				mainLayout.style.gridTemplateRows = "1fr";
+			}
+
+			if (editor) {
+				editor.layout();
+			}
+		});
+
+		document.addEventListener("mouseup", () => {
+			if (isDragging) {
+				isDragging = false;
+				resizer.classList.remove("dragging");
+				document.body.style.cursor = "";
+				document.body.style.userSelect = "";
+
+				if (window.innerWidth <= 768) {
+					localStorage.setItem("c3_playground_top_percentage", topPercentage.toFixed(2));
+				} else {
+					localStorage.setItem("c3_playground_left_percentage", leftPercentage.toFixed(2));
+				}
+			}
+		});
+
+		copyBtn.onclick = () => {
+			if (!editor) return;
+			const codeValue = editor.getValue();
+			navigator.clipboard.writeText(codeValue).then(() => {
+				const originalHTML = copyBtn.innerHTML;
+				const originalTitle = copyBtn.title;
+
+				copyBtn.innerHTML = `
+			<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<polyline points="20 6 9 17 4 12"></polyline>
+			</svg>
+		`;
+				copyBtn.title = "Copied!";
+
+				setTimeout(() => {
+					copyBtn.innerHTML = originalHTML;
+					copyBtn.title = originalTitle;
+				}, 1500);
+			}).catch(err => {
+				console.error("Failed to copy code to clipboard: ", err);
+			});
+		};
+
+		shareBtn.onclick = async () => {
+			if (!editor) return;
+			const codeValue = editor.getValue();
+			const encoded = await compressCode(codeValue);
+			const shareUrl = `${window.location.origin}${window.location.pathname}#code=${encoded}`;
+
+			navigator.clipboard.writeText(shareUrl).then(() => {
+				const originalHTML = shareBtn.innerHTML;
+				const originalTitle = shareBtn.title;
+
+				shareBtn.innerHTML = `
+			<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<polyline points="20 6 9 17 4 12"></polyline>
+			</svg>
+		`;
+				shareBtn.title = "Link Copied!";
+
+				history.replaceState(null, null, `#code=${encoded}`);
+
+				setTimeout(() => {
+					shareBtn.innerHTML = originalHTML;
+					shareBtn.title = originalTitle;
+				}, 1500);
+			}).catch(err => {
+				console.error("Failed to copy share link to clipboard: ", err);
+			});
+		};
+
+		saveBtn.onclick = () => {
+			saveCodeToDisk();
+		};
+
+		function saveCodeToDisk() {
+			if (!editor) return;
+			const codeValue = editor.getValue();
+			const blob = new Blob([codeValue], { type: 'text/plain;charset=utf-8' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = 'main.c3';
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+			console.log("Saved main.c3 to local file system.");
+		}
+
+		async function runEmscriptenProgram(wasmBuffer) {
+			console.log("Running user program WASM buffer...");
+			rawConsoleOutput += "Executing WASM program...\n";
+			outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
+
+			let instance = null;
+			try {
+				instance = await C3EmscriptenRuntime({
+					wasmBinary: wasmBuffer,
+					print(text) {
+						rawConsoleOutput += text + "\n";
+						outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
+					},
+					printErr(text) {
+						rawConsoleOutput += "[ERR] " + text + "\n";
+						outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
+					},
+					onExit(code) {
+						rawConsoleOutput += "\nProgram exited with code: " + code + "\n";
+						outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
+					},
+					noInitialRun: true,
+				});
+
+				const mainFn = instance.wasmExports?.main || instance.wasmExports?.['__main_argc_argv'];
+				if (mainFn) {
+					console.log("Main function found. Executing...");
+					const ret = mainFn(0, 0);
+					rawConsoleOutput += "\n[Process finished with exit code " + ret + "]\n";
+					outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
+
+					// Hook into Canvas loop if exports are present
+					const getPixelsFn = instance.wasmExports?.get_pixels;
+					const updateFn = instance.wasmExports?.update;
+
+					if (getPixelsFn && updateFn) {
+						console.log("[Canvas Runtime] Shared pixel buffer detected. Starting loop.");
+						const canvas = document.getElementById("canvas");
+						const ctx = canvas.getContext("2d");
+						const width = 320;
+						const height = 240;
+
+						canvas.width = width;
+						canvas.height = height;
+
+						const imgData = ctx.createImageData(width, height);
+						document.getElementById("canvasContainer").style.display = "block";
+
+						// Capture a local reference to the active module instance
+						const localInstance = instance;
+
+						// Resolve WebAssembly memory buffer using standard exports fallback chain
+						const memoryBuffer = localInstance.wasmExports?.memory?.buffer
+							|| localInstance.HEAPU8?.buffer
+							|| localInstance.asm?.memory?.buffer;
+
+						if (!memoryBuffer) {
+							console.error("[Canvas Runtime] Failed to resolve WebAssembly memory buffer!");
+							return;
+						}
+
+						function loop() {
+							updateFn();
+							const ptr = getPixelsFn();
+							const size = width * height * 4;
+
+							const view = new Uint8ClampedArray(memoryBuffer, ptr, size);
+							imgData.data.set(view);
+							ctx.putImageData(imgData, 0, 0);
+
+							activeCanvasLoopId = requestAnimationFrame(loop);
+						}
+						activeCanvasLoopId = requestAnimationFrame(loop);
+					}
+				} else {
+					rawConsoleOutput += "[ERR] Entry point 'main' not found in WASM exports\n";
+					outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
+				}
+			} catch (err) {
+				console.error("Execution error:", err);
+				rawConsoleOutput += "\n[Execution Error] " + err + "\n";
+				outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
+			} finally {
+				// Only clear local instance reference if we are not running a continuous canvas loop
+				if (!activeCanvasLoopId) {
+					instance = null;
+				}
+			}
+		}
+	</script>
 </body>
 
 </html>
