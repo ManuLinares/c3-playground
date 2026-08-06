@@ -4,9 +4,10 @@ set -euo pipefail
 BUILD_TYPE="${1:-Debug}"
 LLVM_TAG="${2:-latest}"
 
-# Simplified path anchors
+# Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="${SCRIPT_DIR}/c3c"
+#PROJECT_ROOT="${SCRIPT_DIR}/c3c"
+PROJECT_ROOT="${HOME}/scripts/c3c"
 BUILD_DIR="${SCRIPT_DIR}/build"
 SYS_LIB_DIR="${BUILD_DIR}/wasm32-emscripten"
 DIST_DIR="${SCRIPT_DIR}/dist"
@@ -20,12 +21,12 @@ echo "Dist Directory: ${DIST_DIR}"
 
 # 1. Build and copy Emscripten system static archives for C3 builtin linker
 mkdir -p "${SYS_LIB_DIR}"
-embuilder build libc libclang_rt.builtins libdlmalloc libstubs libsockets
+embuilder build libc libdlmalloc libstubs libsockets
 
 EM_CACHE="$(em-config CACHE)"
 EM_CACHE_DIR="${EM_CACHE}/sysroot/lib/wasm32-emscripten"
 
-for lib in libc.a libclang_rt.builtins.a libdlmalloc.a libstubs.a libsockets.a; do
+for lib in libc.a libdlmalloc.a libstubs.a libsockets.a; do
   if [ -f "${EM_CACHE_DIR}/${lib}" ]; then
     cp "${EM_CACHE_DIR}/${lib}" "${SYS_LIB_DIR}/"
   else
@@ -33,35 +34,11 @@ for lib in libc.a libclang_rt.builtins.a libdlmalloc.a libstubs.a libsockets.a; 
   fi
 done
 
-# Create a dummy libm.a since Emscripten packs math functions directly inside libc.a,
-# but the C3 compiler/linker may still explicitly look for -lm.
-echo "void __dummy_libm(void) {}" > "${SYS_LIB_DIR}/dummy_libm.c"
-emcc -c "${SYS_LIB_DIR}/dummy_libm.c" -o "${SYS_LIB_DIR}/dummy_libm.o"
-emar rcs "${SYS_LIB_DIR}/libm.a" "${SYS_LIB_DIR}/dummy_libm.o"
-rm -f "${SYS_LIB_DIR}/dummy_libm.c" "${SYS_LIB_DIR}/dummy_libm.o"
+# Copy libc.a to libm.a. Emscripten embeds math symbols inside libc.a,
+# which satisfies any implicit -lm requirements without compiling a dummy object.
+cp "${SYS_LIB_DIR}/libc.a" "${SYS_LIB_DIR}/libm.a"
 
-# 2. Generate libemscripten_js_symbols.so (stub file for wasm-ld listing JS runtime imports)
-python3 -c "
-import sys, os, shutil
-emcc_path = shutil.which('emcc')
-if emcc_path:
-    em_dir = os.path.dirname(os.path.realpath(emcc_path))
-    sys.path.insert(0, em_dir)
-from tools.settings import settings
-settings.INCLUDE_FULL_LIBRARY = True
-from tools.link import get_js_sym_info
-info = get_js_sym_info()
-deps = info.get('deps', {})
-stubs = ['#STUB']
-for name, d in sorted(deps.items()):
-    if not name.startswith('\$') and not name.startswith('emscripten_asm_const'):
-        stubs.append('%s: %s' % (name, ','.join(d)))
-with open('${SYS_LIB_DIR}/libemscripten_js_symbols.so', 'w') as f:
-    f.write('\n'.join(stubs))
-print('Generated libemscripten_js_symbols.so with %d symbols' % (len(stubs)-1))
-"
-
-# 3. Configure and compile c3c to WebAssembly
+# 2. Configure and compile c3c to WebAssembly
 emcmake cmake -B "${BUILD_DIR}" -S "${PROJECT_ROOT}" -G Ninja \
   -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
   -DC3_WITH_LLVM=ON \
@@ -77,7 +54,7 @@ emcmake cmake -B "${BUILD_DIR}" -S "${PROJECT_ROOT}" -G Ninja \
 
 cmake --build "${BUILD_DIR}"
 
-# 4. Build standalone Emscripten runtime JS glue for user WASM execution
+# 3. Build standalone Emscripten runtime JS glue for user WASM execution
 python3 -c '
 import sys, os, json, subprocess, shutil
 
@@ -152,7 +129,7 @@ with open(out_path, "w") as f:
     f.write(content)
 ' "${BUILD_DIR}/emscripten_runtime.js"
 
-# 5. Assemble Deployment Directory (dist/)
+# 4. Assemble Deployment Directory (dist/)
 echo "Assembling deployment folder inside: ${DIST_DIR}..."
 rm -rf "${DIST_DIR}"
 mkdir -p "${DIST_DIR}/build"
@@ -174,7 +151,7 @@ if [ -f "${BUILD_DIR}/c3c.wasm" ]; then
   fi
 fi
 
-# 6. Integrated Packaging (ZIP)
+# 5. Integrated Packaging (ZIP)
 if command -v zip &> /dev/null; then
   echo "Packaging assets to ${BUILD_DIR}/site.zip..."
   rm -f "${BUILD_DIR}/site.zip"

@@ -287,13 +287,18 @@ self.onmessage = function (e) {
 			'-L', '/usr/lib/c3/wasm32-emscripten',
 			'-l', 'c',
 			'-l', 'dlmalloc',
-			'-l', 'clang_rt.builtins',
 			'-l', 'stubs',
-			'-z', '/usr/lib/c3/wasm32-emscripten/libemscripten_js_symbols.so',
+			'-l', 'sockets',
 			'-z', '--no-entry',
 			'-z', '--export=main',
 			'-z', '--export=__wasm_call_ctors',
-			'-z', '--export-table',
+			'-z', '--export=malloc',
+			'-z', '--export=free',
+			'-z', '--export=htons',
+			'-z', '--export=ntohs',
+			'-z', '--export=htonl',
+			'-z', '--export=ntohl',
+			'-z', '--allow-undefined',
 			'/main.c3'
 		]);
 
