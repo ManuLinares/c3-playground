@@ -6,7 +6,8 @@ LLVM_TAG="${2:-latest}"
 
 # Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="${HOME}/scripts/c3c"
+#PROJECT_ROOT="${HOME}/scripts/c3c" # local debugging
+PROJECT_ROOT="${SCRIPT_DIR}/c3c"
 BUILD_DIR="${SCRIPT_DIR}/build"
 SYS_LIB_DIR="${BUILD_DIR}/wasm32-emscripten"
 DIST_DIR="${SCRIPT_DIR}/dist"
