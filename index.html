@@ -43,7 +43,7 @@
 		}
 
 		header h1 img {
-			height: 24px;
+			height: 50px;
 			width: auto;
 		}
 
@@ -361,7 +361,8 @@
 
 	<header>
 		<h1>
-			<span>C3 Playground</span>
+			<img src="favicon.svg" alt="C3 Logo">
+			<span>Playground</span>
 			<a href="https://c3-lang.org/standard-library/docs.html" target="_blank" class="docs-link"
 				title="Open C3 Standard Library Documentation">
 				<span>Stdlib Docs</span>
@@ -1142,36 +1143,73 @@ fn int main()
 	<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs/loader.js"></script>
 	<script src="build/emscripten_runtime.js"></script>
 	<script>
-		// Detect iOS and iPadOS (including other browsers using WebKit on iOS) and halt execution early.
+		// Detect iOS and iPadOS (including other browsers using WebKit on iOS)
 		const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
 			(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-		if (isIOSDevice) {
-			document.body.innerHTML = `
-				<div style="
-					display: flex;
-					flex-direction: column;
-					align-items: center;
-					justify-content: center;
-					height: 100vh;
-					background-color: #0f172a;
-					color: #f8fafc;
-					font-family: system-ui, -apple-system, sans-serif;
-					padding: 24px;
-					text-align: center;
-					box-sizing: border-box;
-				">
-					<img src="https://c3-lang.org/assets/favicon.svg" style="height: 64px; margin-bottom: 24px;" alt="C3 Logo">
-					<h1 style="color: #38bdf8; font-size: 1.5rem; margin-bottom: 12px; font-weight: 600;">Playground Not Supported on iOS</h1>
-					<p style="color: #94a3b8; font-size: 0.95rem; max-width: 420px; line-height: 1.6; margin-bottom: 24px;">
-						The C3 compiler running in WebAssembly requires memory features and resource allocations currently restricted by iOS and iPadOS.
-					</p>
-					<p style="color: #64748b; font-size: 0.85rem;">
-						Please use a desktop browser (such as macOS Safari, Chrome, Firefox, or Edge) to use the C3 Playground.
-					</p>
-				</div>
+		// Show warning overlay on iOS unless already dismissed in this session
+		if (isIOSDevice && !sessionStorage.getItem('dismissed_ios_warning')) {
+			const iosOverlay = document.createElement('div');
+			iosOverlay.id = 'iosWarningOverlay';
+			iosOverlay.style.cssText = `
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100vw;
+				height: 100vh;
+				background-color: #0f172a;
+				color: #f8fafc;
+				font-family: system-ui, -apple-system, sans-serif;
+				padding: 24px;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				text-align: center;
+				box-sizing: border-box;
+				z-index: 99999;
 			`;
-			throw new Error("Execution stopped on iOS/iPadOS device.");
+
+			iosOverlay.innerHTML = `
+				<button id="closeIosWarning" title="Close & Continue" style="
+					position: absolute;
+					top: 16px;
+					right: 16px;
+					background: transparent;
+					border: none;
+					color: #94a3b8;
+					font-size: 28px;
+					cursor: pointer;
+					padding: 8px 12px;
+					line-height: 1;
+					transition: color 0.2s;
+				">&times;</button>
+				<img src="favicon.svg" style="height: 64px; margin-bottom: 24px;" alt="C3 Logo">
+				<h1 style="color: #38bdf8; font-size: 1.5rem; margin-bottom: 12px; font-weight: 600;">Playground Not Fully Supported on iOS</h1>
+				<p style="color: #94a3b8; font-size: 0.95rem; max-width: 420px; line-height: 1.6; margin-bottom: 24px;">
+					The C3 compiler running in WebAssembly requires memory features and resource allocations that may be restricted by iOS and iPadOS.
+				</p>
+				<button id="bypassIosBtn" style="
+					background-color: #38bdf8;
+					color: #0f172a;
+					font-weight: 600;
+					border: none;
+					padding: 10px 20px;
+					border-radius: 6px;
+					cursor: pointer;
+					font-size: 0.9rem;
+				">Continue Anyway (Experimental)</button>
+			`;
+
+			document.body.appendChild(iosOverlay);
+
+			const dismissWarning = () => {
+				sessionStorage.setItem('dismissed_ios_warning', 'true');
+				iosOverlay.remove();
+			};
+
+			document.getElementById('closeIosWarning').addEventListener('click', dismissWarning);
+			document.getElementById('bypassIosBtn').addEventListener('click', dismissWarning);
 		}
 
 		const outputEl = document.getElementById("output");
