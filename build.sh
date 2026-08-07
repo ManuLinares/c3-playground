@@ -19,7 +19,7 @@ echo "Project Root:   ${PROJECT_ROOT}"
 echo "Build Output:   ${BUILD_DIR}"
 echo "Dist Directory: ${DIST_DIR}"
 
-# 1. Build and copy Emscripten system static archives for C3 builtin linker [2]
+# 1. Build and copy Emscripten system static archives for C3 builtin linker
 mkdir -p "${SYS_LIB_DIR}"
 embuilder build libc libdlmalloc libstubs libsockets
 
@@ -34,11 +34,17 @@ for lib in libc.a libdlmalloc.a libstubs.a libsockets.a; do
   fi
 done
 
-# Copy libc.a to libm.a. Emscripten embeds math symbols inside libc.a,
-# which satisfies any implicit -lm requirements without compiling a dummy object.
-cp "${SYS_LIB_DIR}/libc.a" "${SYS_LIB_DIR}/libm.a"
+# Create a dummy libm.a placeholder.
+# First, ensure any old, copied libm.a is completely deleted,
+# as 'emar rcs' will append to an existing archive rather than overwrite it.
+rm -f "${SYS_LIB_DIR}/libm.a"
 
-# 2. Configure and compile c3c to WebAssembly [2]
+echo "int __dummy_libm;" > "${SYS_LIB_DIR}/dummy_m.c"
+emcc -c "${SYS_LIB_DIR}/dummy_m.c" -o "${SYS_LIB_DIR}/dummy_m.o"
+emar rcs "${SYS_LIB_DIR}/libm.a" "${SYS_LIB_DIR}/dummy_m.o"
+rm -f "${SYS_LIB_DIR}/dummy_m.c" "${SYS_LIB_DIR}/dummy_m.o"
+
+# 2. Configure and compile c3c to WebAssembly
 emcmake cmake -B "${BUILD_DIR}" -S "${PROJECT_ROOT}" -G Ninja \
   -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
   -DC3_WITH_LLVM=ON \
@@ -68,7 +74,7 @@ emcc -xc /dev/null -o "${BUILD_DIR}/emscripten_runtime.js" \
   -s EXPORT_NAME=C3EmscriptenRuntime \
   -s INCOMING_MODULE_JS_API="['wasmBinary','print','printErr','onExit','noInitialRun']"
 
-# Apply standard text-replacement patches to the output JS file [1]
+# Apply standard text-replacement patches to the output JS file
 python3 -c '
 import sys
 
@@ -108,7 +114,7 @@ with open(out_path, "w") as f:
     f.write(content)
 ' "${BUILD_DIR}/emscripten_runtime.js"
 
-# 4. Assemble Deployment Directory (dist/) [2]
+# 4. Assemble Deployment Directory (dist/)
 echo "Assembling deployment folder inside: ${DIST_DIR}..."
 rm -rf "${DIST_DIR}"
 mkdir -p "${DIST_DIR}/build"
