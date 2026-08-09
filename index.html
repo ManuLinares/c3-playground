@@ -802,26 +802,23 @@ fn void? brainf(String program)
 	<script type="text/c3" data-name="Psychedelic Vortex Canvas">module main;
 import std;
 
-const int WIDTH  = 640;
-const int HEIGHT = 480;
-
 alias Rgba = char[<4>];
 
-const Vec2 CENTER = { WIDTH * 0.5f, HEIGHT * 0.5f };
-
-Rgba[WIDTH][HEIGHT] pixels;
 int frame_count = 0;
 
-fn Rgba* get_pixels() @export("get_pixels") => (Rgba*)&pixels;
-
-fn void update() @export("update")
+fn Rgba* update_canvas(int width, int height) @export("update_canvas")
 {
+	static Rgba[] pixels;
+	if (pixels.len < width * height) pixels = mem::new_array(Rgba, width * height);
+
 	frame_count++;
-	for (int y = 0; y < HEIGHT; y++)
+	Vec2 center = { width * 0.5f, height * 0.5f };
+
+	for (int y = 0; y < height; y++)
 	{
-		for (int x = 0; x < WIDTH; x++)
+		for (int x = 0; x < width; x++)
 		{
-			Vec2 pos = { x, y } - CENTER;
+			Vec2 pos = { x, y } - center;
 			float d = pos.length();
 
 			Vec4 waves = {
@@ -831,9 +828,10 @@ fn void update() @export("update")
 				2.0f
 			};
 
-			pixels[y][x] = (Rgba)(waves * 63.75f + 127.5f).bgra;
+			pixels[y * width + x] = (Rgba)(waves * 63.75f + 127.5f).bgra;
 		}
 	}
+	return pixels;
 }
 
 fn int main()
@@ -875,11 +873,9 @@ int sample_count;
 int step;
 float lfo_phase;
 
-fn float* get_audio() @export("get_audio") => (float*)&audio_buffer;
-
-fn void update_audio() @export("update_audio")
+fn float* update_audio(int samples) @export("update_audio")
 {
-	for (int i = 0; i < BUFFER_SIZE; i++)
+	for (int i = 0; i < samples; i++)
 	{
 		int bar = (sample_count / (STEP_SAMPLES * 16)) % 8;
 
@@ -909,7 +905,7 @@ fn void update_audio() @export("update_audio")
 		amp *= decay;
 		solo_amp *= 0.9995f;
 
-		lfo_phase += (TWO_PI * 1.5f) / (float)SAMPLE_RATE;
+		lfo_phase += (TWO_PI * 1.5f) / SAMPLE_RATE;
 		if (lfo_phase > TWO_PI) lfo_phase -= TWO_PI;
 
 		solo_freq += (solo_target_freq - solo_freq) * 0.003f;
@@ -925,10 +921,10 @@ fn void update_audio() @export("update_audio")
 		float lead_freq = lead_base + math::sin(lfo_phase) * 2.5f;
 
 		float[<4>] phase_inc = { 150.0f * amp.x, 0.0f, BASS_NOTES[step], lead_freq };
-		phase += phase_inc / (float)SAMPLE_RATE;
-		phase -= (float[<4>])(int[<4>])phase;
+		phase += phase_inc / SAMPLE_RATE;
+		phase -= (int[<4>])phase;
 
-		solo_phase += modulated_solo / (float)SAMPLE_RATE;
+		solo_phase += modulated_solo / SAMPLE_RATE;
 		if (solo_phase > 1.0f) solo_phase -= 1.0f;
 
 		float lead_wave = math::abs(phase.w * 2.0f - 1.0f) * 2.0f - 1.0f;
@@ -944,6 +940,7 @@ fn void update_audio() @export("update_audio")
 		voice_out *= amp;
 		audio_buffer[i] = voice_out.sum() + solo_wave;
 	}
+	return &audio_buffer;
 }
 
 fn int main()
@@ -957,9 +954,6 @@ fn int main()
 import std;
 
 alias Rgba = char[<4>];
-
-const int WIDTH = 640;
-const int HEIGHT = 480;
 
 const int BUFFER_SIZE = 1024;
 const double SAMPLE_RATE = 44100.0;
@@ -978,7 +972,6 @@ const float[*] SOLO_SCALE = {
 	293.7f, 329.6f, 392.0f, 440.0f, 523.3f, 587.3f, 659.3f
 };
 
-Rgba[WIDTH][HEIGHT] pixels;
 float[BUFFER_SIZE] audio_buffer;
 
 float[<4>] amp;
@@ -990,68 +983,70 @@ float solo_amp, solo_phase, solo_freq, solo_target_freq;
 int sample_count, step;
 float lfo_phase;
 
-fn Rgba* get_pixels() @export("get_pixels") => (Rgba*)&pixels;
-fn float* get_audio() @export("get_audio") => (float*)&audio_buffer;
-
-fn void update() @export("update")
+fn Rgba* update_canvas(int width, int height) @export("update_canvas")
 {
+	static Rgba[] pixels;
+	if (pixels.len < width * height) pixels = mem::new_array(Rgba, width * height);
+
 	float kick_r = amp.x * 120.0f;
 	float hat_flash = amp.y * 70.0f;
 	float bass_w = amp.z * 100.0f;
 	float lead_r = amp.w * 70.0f;
 	float solo_height = solo_amp * 90.0f;
 
-	for (int y = 0; y < HEIGHT; y++)
+	for (int y = 0; y < height; y++)
 	{
-		for (int x = 0; x < WIDTH; x++)
+		for (int x = 0; x < width; x++)
 		{
-			Rgba p = pixels[y][x];
-			p[0] = (char)((float)p[0] * 0.82f);
-			p[1] = (char)((float)p[1] * 0.82f);
-			p[2] = (char)((float)p[2] * 0.82f);
+			Rgba p = pixels[y * width + x];
+			p[0] = (char)(p[0] * 0.82f);
+			p[1] = (char)(p[1] * 0.82f);
+			p[2] = (char)(p[2] * 0.82f);
 			p[3] = 255;
 
-			if (x < (int)bass_w || x > WIDTH - (int)bass_w)
+			if (x < bass_w || x > width - bass_w)
 			{
-				p = (Rgba){ 255, 20, 147, 255 };
+				p = { 255, 20, 147, 255 };
 			}
 
-			float dx = (float)x - WIDTH * 0.5f;
-			float dy = (float)y - HEIGHT * 0.5f;
+			float dx = x - width * 0.5f;
+			float dy = y - height * 0.5f;
 			float d = math::sqrt(dx * dx + dy * dy);
 			if (d < kick_r)
 			{
-				p = (Rgba){ 20, 80, 240, 255 };
+				p = { 20, 80, 240, 255 };
 			}
 
 			if (lead_r > 2.0f && d < lead_r + 4.0f && d > lead_r - 2.0f)
 			{
-				p = (Rgba){ 0, 255, 255, 255 };
+				p = { 0, 255, 255, 255 };
 			}
 
-			if (y < (int)hat_flash || y > HEIGHT - (int)hat_flash)
+			if (y < hat_flash || y > height - hat_flash)
 			{
-				p = (Rgba){ 240, 200, 20, 255 };
+				p = { 240, 200, 20, 255 };
 			}
 
-			pixels[y][x] = p;
+			pixels[y * width + x] = p;
 		}
 	}
 
-	for (int x = 0; x < WIDTH; x++)
+	for (int x = 0; x < width; x++)
 	{
-		float wave = math::sin((float)x * 0.08f + solo_phase * (float)math::TWO_PI) * solo_height;
-		int y = HEIGHT / 2 + (int)wave;
-		if (y >= 0 && y < HEIGHT)
+		float wave = math::sin(x * 0.08f + solo_phase * (float)math::TWO_PI) * solo_height;
+		int y = height / 2 + (int)wave;
+		if (y >= 0 && y < height)
 		{
-			pixels[y][x] = (Rgba){ 255, 255, 255, 255 };
+			pixels[y * width + x] = { [0..3] = 255 };
 		}
 	}
+
+	return pixels;
 }
 
-fn void update_audio() @export("update_audio")
+fn float* update_audio(int samples) @export("update_audio")
 {
-	for (int i = 0; i < BUFFER_SIZE; i++)
+	for (int i = 0; i < samples; i++)
 	{
 		int bar = (sample_count / (STEP_SAMPLES * 16)) % 8;
 
@@ -1082,7 +1077,7 @@ fn void update_audio() @export("update_audio")
 		amp *= decay;
 		solo_amp *= 0.9995f;
 
-		lfo_phase += 1.5f / (float)SAMPLE_RATE;
+		lfo_phase += 1.5f / SAMPLE_RATE;
 		solo_freq += (solo_target_freq - solo_freq) * 0.002f;
 		float modulated_solo = solo_freq + math::sin(lfo_phase * (float)math::TWO_PI * 6.0f) * (solo_amp * 40.0f);
 
@@ -1099,10 +1094,10 @@ fn void update_audio() @export("update_audio")
 		float lead_freq = lead_base + math::sin(lfo_phase * (float)math::TWO_PI * 2.5f) * 2.5f;
 
 		float[<4>] phase_inc = { 350.0f * amp.x, 180.0f, bass_root, lead_freq };
-		phase += phase_inc / (float)SAMPLE_RATE;
-		phase -= (float[<4>])(int[<4>])phase;
+		phase += phase_inc / SAMPLE_RATE;
+		phase -= (int[<4>])phase;
 
-		solo_phase += modulated_solo / (float)SAMPLE_RATE;
+		solo_phase += modulated_solo / SAMPLE_RATE;
 		
 		if (solo_phase > 1.0f) solo_phase -= 1.0f;
 		if (lfo_phase > 1.0f) lfo_phase -= 1.0f;
@@ -1124,11 +1119,472 @@ fn void update_audio() @export("update_audio")
 		voice_out *= amp;
 		audio_buffer[i] = voice_out.sum() + solo_wave;
 	}
+	return audio_buffer.[..];
 }
 
 fn int main()
 {
 	io::printn("Audio and canvas engines active.");
+	return 0;
+}
+</script>
+
+<script type="text/c3" data-name="VoxelSpace Flight Simulator + Synthwave Beats V1">module main;
+import std;
+
+alias Rgba = char[<4>];
+
+const int MAP_SIZE = 256;
+const int MAP_MASK = MAP_SIZE - 1;
+const int NUM_STARS = 300;
+
+const int BUFFER_SIZE = 1024;
+const double SAMPLE_RATE = 44100.0;
+
+const float BPM = 128;
+const int STEP_SAMPLES = (int)((15.0f / BPM) * SAMPLE_RATE);
+
+const float[8] BASS_ROOTS = { 55.0f, 55.0f, 43.65f, 43.65f, 65.41f, 65.41f, 49.00f, 49.00f };
+
+const float[8][4] CHORD_ARPS = {
+	{ 220.0f, 261.63f, 329.63f, 440.0f, 523.25f, 440.0f, 329.63f, 261.63f },
+	{ 174.61f, 220.0f, 261.63f, 349.23f, 440.0f, 349.23f, 261.63f, 220.0f },
+	{ 261.63f, 329.63f, 392.00f, 523.25f, 659.25f, 523.25f, 392.00f, 329.63f },
+	{ 196.00f, 246.94f, 293.66f, 392.00f, 493.88f, 392.00f, 293.66f, 246.94f }
+};
+
+struct Star {
+	float x, y, z;
+}
+
+Star[NUM_STARS] stars;
+float[BUFFER_SIZE] audio_buffer;
+
+char[MAP_SIZE][MAP_SIZE] height_map;
+char[MAP_SIZE][MAP_SIZE] temp_h;
+Rgba[MAP_SIZE][MAP_SIZE] color_map;
+
+bool map_initialized = false;
+
+float cam_x = 0.0f;
+float cam_y = 0.0f;
+float cam_angle = 0.0f;
+float cam_height = 50.0f;
+float cam_roll = 0.0f;
+float cam_pitch = 0.0f;
+int frame_count = 0;
+
+float kick_pulse = 0.0f;
+
+float[<4>] amp;
+float[<4>] phase;
+float bass_phase_2 = 0.0f;
+float lead_delay_buffer = 0.0f;
+
+int sample_count = 0;
+int step = 0;
+
+fn float sample_height(float fx, float fy)
+{
+	int x0 = ((int)fx) & MAP_MASK;
+	int y0 = ((int)fy) & MAP_MASK;
+	int x1 = (x0 + 1) & MAP_MASK;
+	int y1 = (y0 + 1) & MAP_MASK;
+
+	float tx = fx - math::floor(fx);
+	float ty = fy - math::floor(fy);
+
+	float h00 = height_map[y0][x0];
+	float h10 = height_map[y0][x1];
+	float h01 = height_map[y1][x0];
+	float h11 = height_map[y1][x1];
+
+	float top = h00 + (h10 - h00) * tx;
+	float bottom = h01 + (h11 - h01) * tx;
+
+	return top + (bottom - top) * ty;
+}
+
+fn void init_map()
+{
+	for (int i = 0; i < NUM_STARS; i++)
+	{
+		stars[i].x = ((float)rnd() - 0.5f) * 1200.0f;
+		stars[i].y = (float)rnd() * 190.0f;
+		stars[i].z = (float)rnd() * 0.8f + 0.2f;
+	}
+
+	for (int y = 0; y < MAP_SIZE; y++)
+	{
+		for (int x = 0; x < MAP_SIZE; x++)
+		{
+			float fx = x;
+			float fy = y;
+
+			float h = math::sin(fx * 0.035f) * 32.0f
+			        + math::cos(fy * 0.035f) * 32.0f
+			        + math::sin((fx + fy) * 0.022f) * 38.0f
+			        + math::sin(fx * 0.08f + fy * 0.05f) * 14.0f;
+
+			h = (h + 95.0f) * 0.85f;
+			h = math::clamp(h, 0.0f, 255.0f);
+
+			height_map[y][x] = (char)h;
+		}
+	}
+
+	for (int y = 0; y < MAP_SIZE; y++) {
+		for (int x = 0; x < MAP_SIZE; x++) {
+			temp_h[y][x] = height_map[y][x];
+		}
+	}
+	for (int y = 0; y < MAP_SIZE; y++) {
+		for (int x = 0; x < MAP_SIZE; x++) {
+			int sum = 0;
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dx = -1; dx <= 1; dx++) {
+					sum += (temp_h[(y + dy) & MAP_MASK][(x + dx) & MAP_MASK] & 255);
+				}
+			}
+			height_map[y][x] = (char)(sum / 9);
+		}
+	}
+
+	for (int y = 0; y < MAP_SIZE; y++)
+	{
+		for (int x = 0; x < MAP_SIZE; x++)
+		{
+			float norm_h = (height_map[y][x] & 255) / 255.0f;
+
+			if (norm_h < 0.20f)
+			{
+				float t = norm_h / 0.20f;
+				char r = (char)(10.0f + t * 10.0f);
+				char g = (char)(10.0f + t * 120.0f);
+				char b = (char)(40.0f + t * 160.0f);
+				color_map[y][x] = { r, g, b, 255 };
+			}
+			else
+			{
+				float t = (norm_h - 0.20f) / 0.80f;
+				char r = (char)math::clamp(40.0f + t * 215.0f, 0.0f, 255.0f);
+				char g = (char)math::clamp(10.0f + t * 90.0f, 0.0f, 255.0f);
+				char b = (char)math::clamp(160.0f - t * 90.0f, 0.0f, 255.0f);
+				color_map[y][x] = { r, g, b, 255 };
+			}
+		}
+	}
+
+	map_initialized = true;
+}
+
+fn Rgba* update_canvas(int width, int height) @export("update_canvas")
+{
+	static Rgba[] pixels;
+	if (pixels.len < width * height) pixels = mem::new_array(Rgba, width * height);
+
+	if (!map_initialized) init_map();
+
+	frame_count++;
+
+	float turn_sway = math::sin(frame_count * 0.012f);
+	cam_roll = turn_sway * 0.22f;
+	cam_angle += turn_sway * 0.004f;
+
+	cam_x += math::cos(cam_angle) * 1.6f;
+	cam_y += math::sin(cam_angle) * 1.6f;
+
+	float ground_h = sample_height(cam_x, cam_y);
+
+	float water_factor = math::clamp((52.0f - ground_h) / 20.0f, 0.0f, 1.0f);
+	float target_clearance = 22.0f * water_factor + 38.0f * (1.0f - water_factor);
+	float target_h = ground_h + target_clearance;
+
+	cam_pitch += ((target_h - cam_height) * 0.5f - cam_pitch) * 0.08f;
+	cam_height += (target_h - cam_height) * 0.04f;
+
+	// Sky Gradient
+	for (int y = 0; y < height; y++)
+	{
+		float sy = (float)y / height;
+		Rgba sky_color;
+		if (sy < 0.48f)
+		{
+			char r = (char)(12.0f + sy * 400.0f);
+			char g = (char)(4.0f + sy * 60.0f);
+			char b = (char)(45.0f + sy * 200.0f);
+			sky_color = (Rgba){ r, g, b, 255 };
+		}
+		else
+		{
+			float pulse = kick_pulse * 25.0f;
+			char r = (char)math::clamp(210.0f + pulse - (sy - 0.48f) * 320.0f, 0.0f, 255.0f);
+			char g = (char)math::clamp(40.0f - (sy - 0.48f) * 90.0f, 0.0f, 255.0f);
+			char b = (char)math::clamp(110.0f - (sy - 0.48f) * 220.0f, 0.0f, 255.0f);
+			sky_color = { r, g, b, 255 };
+		}
+
+		for (int x = 0; x < width; x++)
+		{
+			pixels[y * width + x] = sky_color;
+		}
+	}
+
+	// Stars Field
+	for (int i = 0; i < NUM_STARS; i++)
+	{
+		float sx = stars[i].x - cam_angle * 300.0f;
+		while (sx < -(float)width) sx += width * 2.0f;
+		while (sx > width * 2.0f) sx -= width * 2.0f;
+
+		int screen_x = (int)(sx * 0.5f + width * 0.5f);
+		int screen_y = (int)(stars[i].y + cam_pitch * 0.4f);
+
+		if (screen_x >= 0 && screen_x < width && screen_y >= 0 && screen_y < 190)
+		{
+			char brightness = (char)(180.0f * stars[i].z + math::sin(frame_count * 0.1f + i) * 60.0f);
+			pixels[screen_y * width + screen_x] = { brightness, brightness, (char)(brightness * 0.9f), 255 };
+		}
+	}
+
+	// Sun
+	int sun_cx = width / 2 + (int)(math::sin(cam_angle) * 160.0f);
+	int sun_cy = 125 + (int)(cam_pitch * 0.3f);
+	int sun_r = 54 + (int)(kick_pulse * 15.0f);
+
+	for (int dy = -sun_r; dy <= sun_r; dy++)
+	{
+		int py = sun_cy + dy;
+		if (py < 0 || py >= 195) continue;
+		if ((py / 4) % 2 == 0 && dy > 6) continue;
+
+		for (int dx = -sun_r; dx <= sun_r; dx++)
+		{
+			if (dx * dx + dy * dy <= sun_r * sun_r)
+			{
+				int px = sun_cx + dx;
+				if (px >= 0 && px < width)
+				{
+					pixels[py * width + px] = { 255, (char)math::clamp(190 - dy * 2, 0, 255), 20, 255 };
+				}
+			}
+		}
+	}
+
+	// VoxelSpace Terrain & Water Raycaster
+	float distance_far = 195.0f;
+	float fov = 1.0f;
+
+	for (int x = 0; x < width; x++)
+	{
+		float roll_offset = (x - width * 0.5f) * math::tan(cam_roll);
+		float horizon = 195.0f + roll_offset + cam_pitch;
+
+		float ray_angle = cam_angle + ((float)x / width - 0.5f) * fov;
+		float ray_cos = math::cos(ray_angle);
+		float ray_sin = math::sin(ray_angle);
+
+		int max_y = height;
+		float z = 1.0f;
+		float dz = 0.35f;
+
+		while (z < distance_far)
+		{
+			float rx = cam_x + ray_cos * z;
+			float ry = cam_y + ray_sin * z;
+
+			int map_x = ((int)rx) & MAP_MASK;
+			int map_y = ((int)ry) & MAP_MASK;
+
+			float h = (height_map[map_y][map_x] & 255);
+			Rgba col = color_map[map_y][map_x];
+
+			if (h < 52.0f)
+			{
+				float wave = math::sin((float)map_x * 0.18f + frame_count * 0.08f)
+				           + math::cos((float)map_y * 0.18f - frame_count * 0.06f);
+
+				float sun_dx = math::abs((float)x - sun_cx) / 160.0f;
+				float spec = math::clamp(1.0f - sun_dx * sun_dx, 0.0f, 1.0f) * (0.6f + wave * 0.2f);
+
+				char r = (char)math::clamp(20.0f + spec * 235.0f, 0.0f, 255.0f);
+				char g = (char)math::clamp(15.0f + spec * 180.0f + wave * 25.0f, 0.0f, 255.0f);
+				char b = (char)math::clamp(80.0f + spec * 100.0f + wave * 40.0f, 0.0f, 255.0f);
+
+				col = (Rgba){ r, g, b, 255 };
+			}
+			else
+			{
+				// Directional Slope Lighting
+				float h_right = (height_map[map_y][(map_x + 1) & MAP_MASK] & 255);
+				float h_down  = (height_map[(map_y + 1) & MAP_MASK][map_x] & 255);
+				float slope = (h - h_right) * 0.8f + (h - h_down) * 0.8f;
+
+				float light = math::clamp(1.0f + slope * 0.025f, 0.2f, 1.8f);
+				col[0] = (char)math::clamp(col[0] * light, 0.0f, 255.0f);
+				col[1] = (char)math::clamp(col[1] * light, 0.0f, 255.0f);
+				col[2] = (char)math::clamp(col[2] * light, 0.0f, 255.0f);
+			}
+
+			// Fog Horizon Blend
+			float fog = z / distance_far;
+			if (fog > 0.35f)
+			{
+				float f = (fog - 0.35f) * 1.5f;
+				if (f > 1.0f) f = 1.0f;
+				col[0] = (char)(col[0] * (1.0f - f) + 190.0f * f);
+				col[1] = (char)(col[1] * (1.0f - f) + 30.0f * f);
+				col[2] = (char)(col[2] * (1.0f - f) + 100.0f * f);
+			}
+
+			int height_on_screen = (int)((cam_height - h) / z * 190.0f + horizon);
+			if (height_on_screen > height) height_on_screen = height;
+			if (height_on_screen < 0) height_on_screen = 0;
+
+			if (height_on_screen < max_y)
+			{
+				for (int y = height_on_screen; y < max_y; y++)
+				{
+					pixels[y * width + x] = col;
+				}
+				max_y = height_on_screen;
+			}
+
+			if (max_y <= 0) break;
+
+			z += dz;
+			dz += 0.007f;
+		}
+	}
+
+	// Oscilloscope Display
+	int scope_y = 35;
+	int scope_x_start = width - 140;
+	for (int sx = 0; sx < 120; sx++)
+	{
+		int audio_idx = (sx * BUFFER_SIZE) / 120;
+		float val = audio_buffer[audio_idx];
+		int sy = scope_y + (int)(val * 22.0f);
+		if (sy >= 10 && sy < 80 && (scope_x_start + sx) < width)
+		{
+			pixels[sy * width + (scope_x_start + sx)] = { 0, 255, 230, 255 };
+		}
+	}
+
+	// Vignette Border
+	for (int y = 0; y < height; y += 4)
+	{
+		float dy = (y - height * 0.5f) / (height * 0.5f);
+		for (int x = 0; x < width; x += 4)
+		{
+			float dx = (x - width * 0.5f) / (width * 0.5f);
+			float dist_sq = dx * dx + dy * dy;
+			if (dist_sq > 0.65f)
+			{
+				float vig = 1.0f - (dist_sq - 0.65f) * 0.9f;
+				if (vig < 0.3f) vig = 0.3f;
+
+				for (int vy = 0; vy < 4 && (y + vy) < height; vy++)
+				{
+					for (int vx = 0; vx < 4 && (x + vx) < width; vx++)
+					{
+						Rgba p = pixels[(y + vy) * width + (x + vx)];
+						p[0] = (char)(p[0] * vig);
+						p[1] = (char)(p[1] * vig);
+						p[2] = (char)(p[2] * vig);
+						pixels[(y + vy) * width + (x + vx)] = p;
+					}
+				}
+			}
+		}
+	}
+
+	return pixels;
+}
+
+fn float* update_audio(int samples) @export("update_audio")
+{
+	for (int i = 0; i < samples; i++)
+	{
+		if (sample_count % STEP_SAMPLES == 0)
+		{
+			int sub_step = step % 16;
+
+			// Kick
+			if (sub_step % 4 == 0) {
+				amp.x = 0.98f;
+				phase.x = 0.0f;
+			}
+
+			// Snare & Hats
+			if (sub_step == 4 || sub_step == 12) {
+				amp.y = 0.5f;
+				phase.y = 0.0f;
+			} else if (sub_step % 2 == 1) {
+				amp.y = 0.15f;
+				phase.y = 0.0f;
+			}
+			if (step % 128 == 0) {
+				amp.y = 0.9f;
+			}
+
+			// Bass
+			amp.z = 0.3f;
+
+			// Lead
+			if (sub_step % 2 == 0) {
+				amp.w = 0.20f;
+				phase.w = 0.0f;
+			}
+
+			step++;
+		}
+		sample_count++;
+
+		kick_pulse = amp.x;
+
+		amp.x *= 0.9991f;
+		amp.y *= 0.9980f;
+		amp.z *= 0.9995f;
+		amp.w *= 0.9990f;
+
+		float sidechain = 1.0f - (amp.x * 0.65f);
+
+		int active_chord = (step / 16) % 4;
+		float kick_freq = 180.0f * (amp.x * amp.x) + 40.0f;
+		float bass_freq = BASS_ROOTS[(step / 16) % 8];
+		float lead_freq = CHORD_ARPS[active_chord][(step * 3) % 8];
+
+		float[<4>] phase_inc = { kick_freq, 350.0f, bass_freq, lead_freq };
+		phase += phase_inc / SAMPLE_RATE;
+		phase -= (int[<4>])phase;
+
+		bass_phase_2 += (bass_freq * 1.006f) / (float)SAMPLE_RATE;
+		if (bass_phase_2 > 1.0f) bass_phase_2 -= 1.0f;
+
+		float kick_wave = math::sin(phase.x * (float)math::TWO_PI);
+		float snare_wave = ((float)rnd() * 2.0f - 1.0f) * 0.85f + math::sin(phase.y * (float)math::TWO_PI) * 0.15f;
+
+		float bass_wave_1 = (phase.z * 2.0f - 1.0f);
+		float bass_wave_2 = (bass_phase_2 * 2.0f - 1.0f);
+		float fat_bass = (bass_wave_1 + bass_wave_2) * 0.5f;
+
+		float lead_wave = (phase.w < 0.5f ? 0.75f : -0.75f) * sidechain;
+		lead_delay_buffer = lead_delay_buffer * 0.65f + lead_wave * 0.35f;
+		float final_lead = lead_wave + lead_delay_buffer * 0.4f;
+
+		float[<4>] mix = { kick_wave, snare_wave, fat_bass, final_lead };
+		mix *= amp;
+
+		audio_buffer[i] = mix.sum();
+	}
+
+	return &audio_buffer;
+}
+
+fn int main()
+{
+	io::printn("Pro Demoscene 3D Flight & Reflective Ocean Engine Active.");
 	return 0;
 }
 </script>
@@ -2766,12 +3222,11 @@ fn int main()
 					rawConsoleOutput += "\n[Process finished with exit code " + ret + "]\n";
 					outputEl.innerHTML = formatConsoleOutput(rawConsoleOutput);
 
-					// Hook into Canvas loop if exports are present
-					const getPixelsFn = instance.wasmExports?.get_pixels;
-					const updateFn = instance.wasmExports?.update;
+					// Hook into Canvas loop using minimal 2-function API: update_canvas(width, height) -> Rgba*
+					const updateCanvasFn = instance.wasmExports?.update_canvas;
 
-					if (getPixelsFn && updateFn) {
-						console.log("[Canvas Runtime] Shared pixel buffer detected. Starting loop.");
+					if (updateCanvasFn) {
+						console.log("[Canvas Runtime] Canvas export detected. Starting render loop.");
 						const canvas = document.getElementById("canvas");
 						const ctx = canvas.getContext("2d");
 						const width = 640;
@@ -2787,37 +3242,30 @@ fn int main()
 						window.dispatchEvent(new Event('resize'));
 
 						function loop() {
-							// 1. Run the WebAssembly update code first
-							updateFn();
+							// Execute WASM update passing current dimensions, returning pointer to pixels
+							const ptr = updateCanvasFn(width, height);
 
-							// 2. Query the memory buffer AFTER the code has run, capturing any memory growth
 							const currentBuffer = instance.wasmExports?.memory?.buffer
 								|| instance.HEAPU8?.buffer
 								|| instance.asm?.memory?.buffer;
 
-							if (!currentBuffer) {
-								console.error("[Canvas Runtime] Failed to resolve WebAssembly memory buffer!");
-								return;
+							if (currentBuffer && ptr) {
+								const size = width * height * 4;
+								const view = new Uint8ClampedArray(currentBuffer, ptr, size);
+								imgData.data.set(view);
+								ctx.putImageData(imgData, 0, 0);
 							}
-
-							const ptr = getPixelsFn();
-							const size = width * height * 4;
-
-							const view = new Uint8ClampedArray(currentBuffer, ptr, size);
-							imgData.data.set(view);
-							ctx.putImageData(imgData, 0, 0);
 
 							activeCanvasLoopId = requestAnimationFrame(loop);
 						}
 						activeCanvasLoopId = requestAnimationFrame(loop);
 					}
 
-					// Hook into Audio if exports are present
-					const getAudioFn = instance.wasmExports?.get_audio;
+					// Hook into Audio loop using minimal 2-function API: update_audio(samples) -> float*
 					const updateAudioFn = instance.wasmExports?.update_audio;
 
-					if (getAudioFn && updateAudioFn) {
-						console.log("[Audio Runtime] Shared audio buffer detected. Starting Web Audio.");
+					if (updateAudioFn) {
+						console.log("[Audio Runtime] Audio export detected. Starting Web Audio.");
 						const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 						try {
 							activeAudioContext = new AudioContextClass({ sampleRate: 44100 });
@@ -2828,21 +3276,19 @@ fn int main()
 						activeScriptNode = activeAudioContext.createScriptProcessor(bufferSize, 0, 1);
 
 						activeScriptNode.onaudioprocess = function (e) {
-							// 1. Run the WebAssembly update code first
-							updateAudioFn();
+							// Execute WASM update passing requested sample count, returning pointer to float buffer
+							const ptr = updateAudioFn(bufferSize);
 
-							// 2. Query the memory buffer AFTER the code has run, capturing any memory growth
 							const currentBuffer = instance.wasmExports?.memory?.buffer
 								|| instance.HEAPU8?.buffer
 								|| instance.asm?.memory?.buffer;
 
-							if (!currentBuffer) return;
-
-							const ptr = getAudioFn();
-							const wasmBuffer = new Float32Array(currentBuffer, ptr, bufferSize);
-							const outputBuffer = e.outputBuffer;
-							const channelData = outputBuffer.getChannelData(0);
-							channelData.set(wasmBuffer);
+							if (currentBuffer && ptr) {
+								const wasmBuffer = new Float32Array(currentBuffer, ptr, bufferSize);
+								const outputBuffer = e.outputBuffer;
+								const channelData = outputBuffer.getChannelData(0);
+								channelData.set(wasmBuffer);
+							}
 						};
 
 						activeScriptNode.connect(activeAudioContext.destination);

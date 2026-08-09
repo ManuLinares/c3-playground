@@ -321,6 +321,7 @@ self.onmessage = function (e) {
 			'-z', '--export=htonl',
 			'-z', '--export=ntohl',
 			'-z', '--allow-undefined',
+			'-z', '-zstack-size=1048576',
 			'/main.c3'
 		]);
 
