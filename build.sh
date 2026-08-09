@@ -121,11 +121,12 @@ mkdir -p "${DIST_DIR}/build"
 
 cp "${SCRIPT_DIR}/index.html" "${DIST_DIR}/"
 cp "${SCRIPT_DIR}/c3-worker.js" "${DIST_DIR}/"
+cp "${SCRIPT_DIR}/favicon.svg" "${DIST_DIR}/"
 
 cp "${BUILD_DIR}/c3c.js" "${DIST_DIR}/build/"
 cp "${BUILD_DIR}/c3c.data" "${DIST_DIR}/build/"
 cp "${BUILD_DIR}/emscripten_runtime.js" "${DIST_DIR}/build/"
-cp "${BUILD_DIR}/c3c.wasm" "${DIST_DIR}/build/" # Directly copied!
+cp "${BUILD_DIR}/c3c.wasm" "${DIST_DIR}/build/"
 
 echo ""
 echo "Build complete."

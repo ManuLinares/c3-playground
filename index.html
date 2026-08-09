@@ -299,12 +299,6 @@
 			}
 		}
 
-		@media (max-width: 768px) {
-			#canvasContainer {
-				height: 100px;
-			}
-		}
-
 		/* Clickable Compiler Links inside Output Console */
 		.console-link:hover {
 			text-decoration: underline !important;
@@ -1266,58 +1260,30 @@ fn int main()
 			setTimeout(() => { isNavigating = false; }, 400);
 		}, true);
 
-		// Native Async GZIP compression via browser's Compression Streams API
-		async function compressCode(str) {
-			const byteArray = new TextEncoder().encode(str);
-			const cs = new CompressionStream("gzip");
-			const writer = cs.writable.getWriter();
-			writer.write(byteArray);
-			writer.close();
+		// Cache variables to prevent hitting pastes.dev unnecessarily
+		let lastSharedCode = null;
+		let lastSharedUrl = null;
 
-			const response = new Response(cs.readable);
-			const arrayBuffer = await response.arrayBuffer();
-
-			const uint8 = new Uint8Array(arrayBuffer);
-			let binary = "";
-			for (let i = 0; i < uint8.byteLength; i++) {
-				binary += String.fromCharCode(uint8[i]);
-			}
-			const base64 = btoa(binary);
-			return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-		}
-
-		// Native Async GZIP decompression via browser's Decompression Streams API
-		async function decompressCode(safeBase64) {
-			try {
-				let base64 = safeBase64.replace(/-/g, '+').replace(/_/g, '/');
-				while (base64.length % 4) {
-					base64 += '=';
-				}
-				const binary = atob(base64);
-				const bytes = new Uint8Array(binary.length);
-				for (let i = 0; i < binary.length; i++) {
-					bytes[i] = binary.charCodeAt(i);
-				}
-
-				const ds = new DecompressionStream("gzip");
-				const writer = ds.writable.getWriter();
-				writer.write(bytes);
-				writer.close();
-
-				const response = new Response(ds.readable);
-				const arrayBuffer = await response.arrayBuffer();
-				return new TextDecoder().decode(arrayBuffer);
-			} catch (err) {
-				console.error("Native decompression failed or parameters are malformed:", err);
-				return null;
-			}
-		}
-
+		// Fetch code from pastes.dev (supports #p=key or #key)
 		async function getSharedCode() {
-			const hash = window.location.hash;
-			if (hash && hash.startsWith("#code=")) {
-				const encoded = hash.substring(6);
-				return await decompressCode(encoded);
+			let hash = window.location.hash.trim();
+			if (!hash) return null;
+
+			// Extract paste key from hash
+			const key = hash.replace(/^#(?:p=)?/, '');
+			if (!key) return null;
+
+			try {
+				const res = await fetch(`https://api.pastes.dev/${key}`);
+				if (res.ok) {
+					const code = await res.text();
+					// Seed cache so re-sharing loaded code doesn't trigger a new POST
+					lastSharedCode = code;
+					lastSharedUrl = `${window.location.origin}${window.location.pathname}#p=${key}`;
+					return code;
+				}
+			} catch (err) {
+				console.error("Failed to fetch snippet from pastes.dev:", err);
 			}
 			return null;
 		}
@@ -2175,18 +2141,20 @@ fn int main()
 			const defaultExampleKey = exampleKeys[0] || "";
 
 			const savedCode = localStorage.getItem("c3_playground_code");
-			const savedExample = localStorage.getItem("c3_playground_selected_example");
 			const sharedCode = await getSharedCode();
 
 			const initialCodeValue = sharedCode !== null ? sharedCode : (savedCode !== null ? savedCode : examples[defaultExampleKey]);
 
-			if (sharedCode !== null) {
-				exampleSelect.value = "";
-			} else if (savedExample && examples[savedExample]) {
-				exampleSelect.value = savedExample;
-			} else {
-				exampleSelect.value = defaultExampleKey;
+			// If the initial code matches a pristine example, show its name in the dropdown.
+			// If it's modified user code, reset the dropdown to the "Examples..." placeholder.
+			let matchingExampleKey = "";
+			for (const [key, val] of Object.entries(examples)) {
+				if (val === initialCodeValue) {
+					matchingExampleKey = key;
+					break;
+				}
 			}
+			exampleSelect.value = matchingExampleKey;
 
 			editor = monaco.editor.create(document.getElementById("code"), {
 				value: initialCodeValue,
@@ -2211,7 +2179,14 @@ fn int main()
 			editor.focus();
 
 			editor.onDidChangeModelContent(() => {
-				localStorage.setItem("c3_playground_code", editor.getValue());
+				const currentCode = editor.getValue();
+				localStorage.setItem("c3_playground_code", currentCode);
+
+				// Reset dropdown to "Examples..." if user edits code away from the selected example
+				if (exampleSelect.value && examples[exampleSelect.value] !== currentCode) {
+					exampleSelect.value = "";
+				}
+
 				queueDocgenUpdate();
 			});
 
@@ -2228,10 +2203,9 @@ fn int main()
 			exampleSelect.onchange = () => {
 				if (editor && examples[exampleSelect.value]) {
 					editor.setValue(examples[exampleSelect.value]);
-					localStorage.setItem("c3_playground_selected_example", exampleSelect.value);
 					localStorage.setItem("c3_playground_code", examples[exampleSelect.value]);
 					if (window.location.hash) {
-						history.replaceState(null, null, ' ');
+						history.replaceState(null, null, window.location.pathname + window.location.search);
 					}
 				}
 			};
@@ -2438,7 +2412,7 @@ fn int main()
 
 				const workerJsFetchPromise = fetch('c3-worker.js').then(res => {
 					if (!res.ok) throw new Error('Failed to fetch c3-worker.js');
-					return text = res.text();
+					return res.text();
 				}).then(text => {
 					c3WorkerJsText = text;
 					console.log("Successfully loaded c3-worker.js text (" + text.length + " chars)");
@@ -2639,13 +2613,20 @@ fn int main()
 			}
 		});
 
+
+		// Store original button states once so rapid clicking never breaks the icons
+		const DEFAULT_COPY_HTML = copyBtn.innerHTML;
+		const DEFAULT_COPY_TITLE = copyBtn.title || "Copy Code";
+		let copyResetTimeout = null;
+
+		const DEFAULT_SHARE_HTML = shareBtn.innerHTML;
+		const DEFAULT_SHARE_TITLE = shareBtn.title || "Share Code";
+		let shareResetTimeout = null;
+
 		copyBtn.onclick = () => {
 			if (!editor) return;
 			const codeValue = editor.getValue();
 			navigator.clipboard.writeText(codeValue).then(() => {
-				const originalHTML = copyBtn.innerHTML;
-				const originalTitle = copyBtn.title;
-
 				copyBtn.innerHTML = `
 			<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<polyline points="20 6 9 17 4 12"></polyline>
@@ -2653,41 +2634,86 @@ fn int main()
 		`;
 				copyBtn.title = "Copied!";
 
-				setTimeout(() => {
-					copyBtn.innerHTML = originalHTML;
-					copyBtn.title = originalTitle;
+				clearTimeout(copyResetTimeout);
+				copyResetTimeout = setTimeout(() => {
+					copyBtn.innerHTML = DEFAULT_COPY_HTML;
+					copyBtn.title = DEFAULT_COPY_TITLE;
 				}, 1500);
 			}).catch(err => {
 				console.error("Failed to copy code to clipboard: ", err);
 			});
 		};
 
+
 		shareBtn.onclick = async () => {
 			if (!editor) return;
 			const codeValue = editor.getValue();
-			const encoded = await compressCode(codeValue);
-			const shareUrl = `${window.location.origin}${window.location.pathname}#code=${encoded}`;
 
-			navigator.clipboard.writeText(shareUrl).then(() => {
-				const originalHTML = shareBtn.innerHTML;
-				const originalTitle = shareBtn.title;
+			// 1. OPTIMIZATION: If code hasn't changed, reuse previous link without calling API
+			if (lastSharedCode === codeValue && lastSharedUrl) {
+				await navigator.clipboard.writeText(lastSharedUrl);
+				history.replaceState(null, null, `#p=${lastSharedUrl.split('#p=')[1]}`);
 
 				shareBtn.innerHTML = `
-			<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<polyline points="20 6 9 17 4 12"></polyline>
-			</svg>
-		`;
+					<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<polyline points="20 6 9 17 4 12"></polyline>
+					</svg>
+				`;
 				shareBtn.title = "Link Copied!";
 
-				history.replaceState(null, null, `#code=${encoded}`);
-
-				setTimeout(() => {
-					shareBtn.innerHTML = originalHTML;
-					shareBtn.title = originalTitle;
+				clearTimeout(shareResetTimeout);
+				shareResetTimeout = setTimeout(() => {
+					shareBtn.innerHTML = DEFAULT_SHARE_HTML;
+					shareBtn.title = DEFAULT_SHARE_TITLE;
 				}, 1500);
-			}).catch(err => {
-				console.error("Failed to copy share link to clipboard: ", err);
-			});
+				return;
+			}
+
+			shareBtn.disabled = true;
+			shareBtn.title = "Generating Link...";
+
+			// 2. Upload code to pastes.dev
+			try {
+				const res = await fetch('https://api.pastes.dev/post', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'text/c3'
+					},
+					body: codeValue
+				});
+
+				if (res.ok) {
+					const data = await res.json();
+					const key = data.key;
+					const shareUrl = `${window.location.origin}${window.location.pathname}#p=${key}`;
+
+					// Update cache
+					lastSharedCode = codeValue;
+					lastSharedUrl = shareUrl;
+
+					history.replaceState(null, null, `#p=${key}`);
+					await navigator.clipboard.writeText(shareUrl);
+
+					shareBtn.innerHTML = `
+						<svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<polyline points="20 6 9 17 4 12"></polyline>
+						</svg>
+					`;
+					shareBtn.title = "Link Copied!";
+				} else {
+					alert("Failed to create share link on pastes.dev");
+				}
+			} catch (err) {
+				console.error("Network error while creating paste:", err);
+				alert("Could not reach pastes.dev API");
+			} finally {
+				shareBtn.disabled = false;
+				clearTimeout(shareResetTimeout);
+				shareResetTimeout = setTimeout(() => {
+					shareBtn.innerHTML = DEFAULT_SHARE_HTML;
+					shareBtn.title = DEFAULT_SHARE_TITLE;
+				}, 1500);
+			}
 		};
 
 		saveBtn.onclick = () => {

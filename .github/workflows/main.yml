@@ -54,9 +54,6 @@ jobs:
       - name: Run Integration Tests
         run: node c3-worker.js
 
-      - name: Copy Favicon to dist
-        run: cp favicon.svg dist/
-
       - name: Setup Pages
         uses: actions/configure-pages@v6
 
