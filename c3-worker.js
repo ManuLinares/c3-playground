@@ -216,7 +216,8 @@ self.onmessage = function (e) {
 					'--target', 'emscripten',
 					'--emit-stdlib=yes',
 					'--stdlib', '/usr/lib/c3/std',
-					'/main.c3'
+					'/main.c3',
+					'--max-mem', '64',
 				]);
 			} catch (exitErr) {
 			}
@@ -298,9 +299,27 @@ self.onmessage = function (e) {
 		Module.FS.writeFile('/main.c3', msg.source);
 		console.log("[Worker] Written main.c3 into virtual file system.");
 
+		// Helper to tokenize command-line flag string safely
+		function parseFlags(str) {
+			if (!str || !str.trim()) return [];
+			const regex = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
+			const args = [];
+			let match;
+			while ((match = regex.exec(str)) !== null) {
+				args.push(match[1] ?? match[2] ?? match[0]);
+			}
+			return args;
+		}
+
+		const userFlags = parseFlags(msg.extraFlags);
+
+		const hasMaxMem = userFlags.some(arg => arg === '--max-mem' || arg.startsWith('--max-mem='));
+		const maxMemDefault = hasMaxMem ? [] : ['--max-mem', '64'];
+
 		console.log("[Worker] Calling Module.callMain compiler command...");
 		const exitCode = Module.callMain([
 			'compile',
+			...maxMemDefault,
 			'--target', 'emscripten',
 			'--linker=builtin',
 			'--ansi=no',
@@ -322,6 +341,7 @@ self.onmessage = function (e) {
 			'-z', '--export=ntohl',
 			'-z', '--allow-undefined',
 			'-z', '-zstack-size=1048576',
+			...userFlags,
 			'/main.c3'
 		]);
 

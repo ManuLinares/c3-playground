@@ -153,7 +153,6 @@
 			visibility: hidden;
 			position: absolute;
 			top: calc(100% + 8px);
-			/* Positioned cleanly beneath the badge */
 			right: 0;
 			background-color: #0b1329;
 			border: 1px solid var(--border);
@@ -170,10 +169,88 @@
 			transition: opacity 0.2s ease, visibility 0.2s ease;
 		}
 
-		/* Reveal the tooltip exclusively when hovering a 'Ready' status badge */
 		.status-container:hover .status-badge.ready~.status-tooltip {
 			opacity: 1;
 			visibility: visible;
+		}
+
+		/* Compiler Settings Popover */
+		.settings-container {
+			position: relative;
+			display: inline-flex;
+			align-items: center;
+		}
+
+		.settings-btn {
+			padding: 8px;
+			background: var(--bg-dark);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			color: var(--text-main);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.settings-btn:hover {
+			border-color: var(--accent);
+			color: var(--accent);
+		}
+
+		.settings-popover {
+			display: none;
+			position: absolute;
+			top: calc(100% + 8px);
+			right: 0;
+			width: 320px;
+			background: #0b1329;
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			padding: 16px;
+			z-index: 1000;
+			box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
+			flex-direction: column;
+			gap: 8px;
+		}
+
+		.settings-popover.active {
+			display: flex;
+		}
+
+		.popover-header {
+			font-size: 0.85rem;
+			font-weight: 600;
+			color: var(--accent);
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			margin-bottom: 2px;
+		}
+
+		.settings-popover label {
+			font-size: 0.8rem;
+			color: var(--text-muted);
+		}
+
+		.settings-popover input {
+			font-family: 'Cascadia Code', 'Fira Code', Consolas, Monaco, monospace;
+			font-size: 0.85rem;
+			padding: 8px 10px;
+			border-radius: 6px;
+			border: 1px solid var(--border);
+			background: var(--panel-bg);
+			color: var(--text-main);
+			width: 100%;
+		}
+
+		.settings-popover input:focus {
+			outline: none;
+			border-color: var(--accent);
+		}
+
+		.popover-help {
+			font-size: 0.75rem;
+			color: var(--text-muted);
+			line-height: 1.4;
 		}
 
 		main {
@@ -376,6 +453,22 @@
 			<div class="status-container">
 				<span id="status" class="status-badge">Loading...</span>
 				<pre id="statusTooltip" class="status-tooltip">Fetching version...</pre>
+			</div>
+
+			<!-- Compiler Settings Gear & Popover -->
+			<div class="settings-container">
+				<button id="settingsBtn" class="settings-btn" title="Compiler Settings" aria-label="Compiler Settings">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="3"></circle>
+						<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+					</svg>
+				</button>
+				<div id="settingsPopover" class="settings-popover">
+					<div class="popover-header">Compiler Flags</div>
+					<label for="extraFlagsInput">Extra Arguments:</label>
+					<input type="text" id="extraFlagsInput" placeholder="-O3 --safe=yes -D FOO" spellcheck="false" autocomplete="off">
+					<span class="popover-help">Additional flags passed directly to <code>c3c compile</code>.</span>
+				</div>
 			</div>
 
 			<button id="compileBtn" class="primary" title="Compile & Run (Ctrl+Enter)" disabled>Compile & Run</button>
@@ -1674,6 +1767,41 @@ fn int main()
 		const resizer = document.getElementById("resizer");
 		const mainLayout = document.getElementById("mainLayout");
 
+		const settingsBtn = document.getElementById("settingsBtn");
+		const settingsPopover = document.getElementById("settingsPopover");
+		const extraFlagsInput = document.getElementById("extraFlagsInput");
+
+		// Load saved extra compiler flags
+		const savedFlags = localStorage.getItem("c3_playground_extra_flags");
+		if (savedFlags !== null) {
+			extraFlagsInput.value = savedFlags;
+		}
+
+		extraFlagsInput.addEventListener("input", () => {
+			localStorage.setItem("c3_playground_extra_flags", extraFlagsInput.value);
+		});
+
+		settingsBtn.onclick = (e) => {
+			e.stopPropagation();
+			settingsPopover.classList.toggle("active");
+			if (settingsPopover.classList.contains("active")) {
+				extraFlagsInput.focus();
+			}
+		};
+
+		document.addEventListener("click", (e) => {
+			if (!settingsPopover.contains(e.target) && e.target !== settingsBtn) {
+				settingsPopover.classList.remove("active");
+			}
+		});
+
+		extraFlagsInput.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") {
+				settingsPopover.classList.remove("active");
+				compileBtn.click();
+			}
+		});
+
 		// Dynamically discover code examples from script tags using only the data-name attribute
 		const examples = {};
 		document.querySelectorAll('script[type="text/c3"][data-name]').forEach(script => {
@@ -1994,7 +2122,6 @@ fn int main()
 			if (!model || !position || !word) return null;
 
 			const currentLine = position.lineNumber;
-			const wordRegex = new RegExp(`\\b${word}\\b`);
 
 			for (let i = currentLine; i >= 1; i--) {
 				const line = model.getLineContent(i);
@@ -2674,7 +2801,7 @@ fn int main()
 		let activeTaskType = null;
 		let compilerWorkerBlobUrl = null;
 
-		async function executeCompilerTask(taskType, sourceCode, onMessageCallback) {
+		async function executeCompilerTask(taskType, sourceCode, onMessageCallback, extraFlags = '') {
 			if (isAnyCompilerTaskRunning) {
 				// Abort low priority background operations if a new process requested it
 				if (activeWorker && (activeTaskType === "docgen" || activeTaskType === "version")) {
@@ -2743,7 +2870,7 @@ fn int main()
 
 				if (msg.type === "ready") {
 					initComplete = true;
-					tempWorker.postMessage({ type: taskType, source: sourceCode });
+					tempWorker.postMessage({ type: taskType, source: sourceCode, extraFlags: extraFlags });
 					return;
 				}
 
@@ -2919,7 +3046,8 @@ fn int main()
 				return;
 			}
 			const codeValue = editor.getValue();
-			console.log("Compile button clicked. Source length:", codeValue.length);
+			const extraFlags = extraFlagsInput.value;
+			console.log("Compile button clicked. Source length:", codeValue.length, "Extra flags:", extraFlags);
 
 			// Hide canvas and cancel current loop
 			document.getElementById("canvasContainer").style.display = "none";
@@ -2979,7 +3107,8 @@ fn int main()
 							return true;
 					}
 					return false;
-				}
+				},
+				extraFlags
 			);
 		};
 
@@ -3069,7 +3198,6 @@ fn int main()
 			}
 		});
 
-
 		// Store original button states once so rapid clicking never breaks the icons
 		const DEFAULT_COPY_HTML = copyBtn.innerHTML;
 		const DEFAULT_COPY_TITLE = copyBtn.title || "Copy Code";
@@ -3099,7 +3227,6 @@ fn int main()
 				console.error("Failed to copy code to clipboard: ", err);
 			});
 		};
-
 
 		shareBtn.onclick = async () => {
 			if (!editor) return;
