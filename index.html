@@ -1399,7 +1399,7 @@ fn Rgba* update_canvas(int width, int height) @export("update_canvas")
 	}
 
 	// Moon
-	int moon_cx = width / 2 + (int)(math::sin(cam_angle) * 160.0f);
+	int moon_cx = width / 2 - (int)(math::sin(cam_angle) * 160.0f);
 	int moon_cy = 110 + (int)(cam_pitch * 0.8f);
 	int moon_r = 44;
 	int max_r = 66;
