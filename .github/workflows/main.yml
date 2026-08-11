@@ -3,6 +3,8 @@ name: Deploy Web C3 Playground
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -24,22 +26,22 @@ jobs:
       - name: Check out host repository
         uses: actions/checkout@v7
 
-      - name: Clone C3 Compiler & Checkout PR 3415
+      - name: Clone C3 Compiler
         run: |
-          git clone https://github.com/c3lang/c3c.git c3c
-          cd c3c
-
-          if git fetch origin pull/3415/head:pr-3415; then
-            git checkout pr-3415
-            echo "Successfully checked out and applied PR 3415"
-          else
-            echo "PR 3415 fetch failed or already merged. Proceeding with default branch."
-          fi
+          git clone --depth 1 https://github.com/c3lang/c3c.git c3c
 
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build
+          sudo apt-get install -y ninja-build ccache
+
+      - name: Setup Compiler Cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-
 
       - name: Setup Emscripten (WebAssembly Compiler)
         uses: emscripten-core/setup-emsdk@v16

@@ -46,6 +46,8 @@ rm -f "${SYS_LIB_DIR}/dummy_m.c" "${SYS_LIB_DIR}/dummy_m.o"
 
 # 2. Configure and compile c3c to WebAssembly
 emcmake cmake -B "${BUILD_DIR}" -S "${PROJECT_ROOT}" -G Ninja \
+  -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+  -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
   -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
   -DC3_WITH_LLVM=ON \
   -DC3_FETCH_LLVM=ON \
