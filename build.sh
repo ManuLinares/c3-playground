@@ -125,6 +125,10 @@ cp "${SCRIPT_DIR}/index.html" "${DIST_DIR}/"
 cp "${SCRIPT_DIR}/c3-worker.js" "${DIST_DIR}/"
 cp "${SCRIPT_DIR}/favicon.svg" "${DIST_DIR}/"
 
+# Copy JS modules & C3 examples folders
+cp -r "${SCRIPT_DIR}/js" "${DIST_DIR}/"
+cp -r "${SCRIPT_DIR}/examples" "${DIST_DIR}/"
+
 cp "${BUILD_DIR}/c3c.js" "${DIST_DIR}/build/"
 cp "${BUILD_DIR}/c3c.data" "${DIST_DIR}/build/"
 cp "${BUILD_DIR}/emscripten_runtime.js" "${DIST_DIR}/build/"

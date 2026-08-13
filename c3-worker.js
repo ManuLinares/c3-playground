@@ -110,11 +110,11 @@ Module.printErr = function (text) {
 Module.onRuntimeInitialized = function () {
 	console.log("[Worker] Module.onRuntimeInitialized called!");
 	runtimeReady = true;
-	
+
 	if (isNode && originalCwd) {
 		process.chdir(originalCwd);
 	}
-	
+
 	postMessage({ type: 'ready' });
 };
 
@@ -134,7 +134,7 @@ self.onmessage = function (e) {
 				const path = require('path');
 				originalCwd = process.cwd();
 				process.chdir(path.join(__dirname, 'build'));
-				
+
 				console.log("[Worker] Evaluating c3c.js text in scoped function (Node)...");
 				const runCompiler = new Function('Module', '__dirname', '__filename', 'require', 'exports', 'module', msg.c3cJs);
 				runCompiler(
@@ -399,13 +399,13 @@ if (isNode) {
 
 	fn void main() {
 		io::printn("Hello from the headless C3 browser playground!");
-		
+
 		@pool() {
 			double[] temp_vals = mem::temp_array(double, 3);
 			temp_vals[0] = 3.14159;
 			temp_vals[1] = 2.71828;
 			temp_vals[2] = 1.61803;
-			
+
 			foreach (idx, val : temp_vals) {
 				io::printfn("temp_vals[%d] = %.5f", idx, val);
 			}
