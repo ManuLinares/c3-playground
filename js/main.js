@@ -191,6 +191,11 @@ if (canvasFullscreenBtn) {
 		} else if (document.exitFullscreen) {
 			document.exitFullscreen();
 		}
+		canvasFullscreenBtn.blur();
+		const hiddenInput = document.getElementById("canvasHiddenInput");
+		if (hiddenInput) {
+			try { hiddenInput.focus(); } catch (e) { }
+		}
 	};
 }
 

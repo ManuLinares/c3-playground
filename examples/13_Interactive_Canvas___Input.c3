@@ -9,9 +9,10 @@ enum EventKind : char
 	MOUSE_MOVE,
 	MOUSE_DOWN,
 	MOUSE_UP,
+	MOUSE_WHEEL,
 	KEY_DOWN,
 	KEY_UP,
-	WHEEL
+	CHAR_INPUT
 }
 
 struct Event
@@ -21,7 +22,13 @@ struct Event
 	float wheel;
 	int mouse_button;
 	int key;
+	Char32 character;
 }
+
+const int KEY_RIGHT = 262;
+const int KEY_LEFT  = 263;
+const int KEY_DOWN  = 264;
+const int KEY_UP    = 265;
 
 struct Particle
 {
@@ -74,26 +81,26 @@ fn Rgba* update_canvas(int width, int height, float dt, Event[] events) @export(
 			case MOUSE_UP:
 				is_mouse_down = false;
 
-			case WHEEL:
+			case MOUSE_WHEEL:
 				mouse_pos = event.mouse_pos;
 				for (int i = 0; i < 8; i++) spawn_particle(mouse_pos);
 
 			case KEY_DOWN:
-				if (event.key == 'w' || event.key == 'W' || event.key == 38) player_vel.y = -200.0f;
-				if (event.key == 's' || event.key == 'S' || event.key == 40) player_vel.y = 200.0f;
-				if (event.key == 'a' || event.key == 'A' || event.key == 37) player_vel.x = -200.0f;
-				if (event.key == 'd' || event.key == 'D' || event.key == 39) player_vel.x = 200.0f;
-				if (event.key == 32)
+				if (event.key == 'W' || event.key == 'w' || event.key == KEY_UP)    player_vel.y = -200.0f;
+				if (event.key == 'S' || event.key == 's' || event.key == KEY_DOWN)  player_vel.y = 200.0f;
+				if (event.key == 'A' || event.key == 'a' || event.key == KEY_LEFT)  player_vel.x = -200.0f;
+				if (event.key == 'D' || event.key == 'd' || event.key == KEY_RIGHT) player_vel.x = 200.0f;
+				if (event.key == ' ')
 				{
 					// Spacebar
 					for (int i = 0; i < 32; i++) spawn_particle(player_pos);
 				}
 
 			case KEY_UP:
-				if (event.key == 'w' || event.key == 'W' || event.key == 38 || event.key == 's' || event.key == 'S'
-					|| event.key == 40) player_vel.y = 0.0f;
-				if (event.key == 'a' || event.key == 'A' || event.key == 37 || event.key == 'd' || event.key == 'D'
-					|| event.key == 39) player_vel.x = 0.0f;
+				if (event.key == 'W' || event.key == 'w' || event.key == KEY_UP || event.key == 'S' || event.key == 's'
+					|| event.key == KEY_DOWN) player_vel.y = 0.0f;
+				if (event.key == 'A' || event.key == 'a' || event.key == KEY_LEFT || event.key == 'D' || event.key == 'd'
+					|| event.key == KEY_RIGHT) player_vel.x = 0.0f;
 
 			default: break;
 		}

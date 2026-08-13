@@ -16,6 +16,7 @@ export const EXAMPLES_MANIFEST = [
 	{ id: "interactive_canvas",   name: "Interactive Canvas & Input",                    file: "examples/13_Interactive_Canvas___Input.c3" },
 	{ id: "neon_overdrive",       name: "NEON OVERDRIVE: CYBER ARENA",                   file: "examples/14_NEON_OVERDRIVE__CYBER_ARENA.c3" },
 	{ id: "piano",                name: "Piano",                                         file: "examples/15_Piano.c3" },
+	{ id: "text_editor",          name: "Text Editor",                                   file: "examples/16_text_editor.c3" },
 ];
 
 const cache = new Map();

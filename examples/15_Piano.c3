@@ -14,8 +14,8 @@ G#3:76.80:0.08 C4:76.88:0.08 D#4:76.96:0.08 G#4:77.04:0.08 C5:77.12:0.08 D#5:77.
 A#3:78.10:0.08 D4:78.18:0.08 F4:78.26:0.08 A#4:78.34:0.08 D5:78.42:0.08 F5:78.50:0.08 A#5:78.58:0.30 A#2:78.58:0.30 A#5:78.90:0.12 A#5:79.05:0.12 A#5:79.20:0.12 C6:79.35:0.60 C2:79.35:0.60 C3:79.35:0.60
 `;
 
-const int KEY_ENTER  = 13;
-const int KEY_RETURN = 10;
+const int KEY_ENTER  = 257;
+const int KEY_RETURN = 13;
 const int KEY_SPACE  = 32;
 
 const Rgba COLOR_BG            = { 10, 14, 26, 255 };
@@ -612,6 +612,7 @@ fn void MidiRouter.shift_active_notes(&self, int old_shift, int new_shift)
 fn int MidiRouter.key_code_to_key_idx(&self, int k)
 {
 	if (k == 241 || k == 209) return 16;
+	if (k >= 256) return -1;
 	char c = ((char)k).to_lower();
 
 	switch (c)
@@ -695,7 +696,7 @@ fn void MidiRouter.process_events(&self, Event[] events)
 				}
 				self.mouse_active_idx = -1;
 
-			case WHEEL:
+			case MOUSE_WHEEL:
 				if (event.wheel != 0.0f)
 				{
 					synth_engine.master_volume = math::clamp(
@@ -707,7 +708,8 @@ fn void MidiRouter.process_events(&self, Event[] events)
 				}
 
 			case KEY_DOWN:
-				int k = (int)((char)event.key).to_lower();
+				int k = event.key;
+				if (k < 256) k = (int)((char)k).to_lower();
 				int prev_shift = self.get_octave_shift();
 
 				switch (k)
@@ -737,8 +739,11 @@ fn void MidiRouter.process_events(&self, Event[] events)
 									if (pitch_num >= 0 && pitch_num <= 127)
 									{
 										Pitch p = (Pitch)pitch_num;
+										if (k < 256)
+										{
 										self.key_to_active_pitch[k] = p;
 										self.key_to_key_idx[k] = idx;
+										}
 										self.dispatch_note_on_with_key_idx(p, 1.0f, idx, true);
 									}
 								}
@@ -746,7 +751,8 @@ fn void MidiRouter.process_events(&self, Event[] events)
 				}
 
 			case KEY_UP:
-				int k = (int)((char)event.key).to_lower();
+				int k = event.key;
+				if (k < 256) k = (int)((char)k).to_lower();
 				int prev_shift = self.get_octave_shift();
 
 				switch (k)
@@ -767,11 +773,11 @@ fn void MidiRouter.process_events(&self, Event[] events)
 							case k >= '1' && k <= '9':
 								break;
 							default:
-								Pitch active_p = self.key_to_active_pitch[k];
+								Pitch active_p = k < 256 ? self.key_to_active_pitch[k] : 0;
 								if (active_p != 0)
 								{
 									self.dispatch_note_off(active_p, true);
-									self.key_to_active_pitch[k] = 0;
+									if (k < 256) self.key_to_active_pitch[k] = 0;
 								}
 								else
 								{
@@ -800,9 +806,10 @@ enum EventKind : char
 	MOUSE_MOVE,
 	MOUSE_DOWN,
 	MOUSE_UP,
+	MOUSE_WHEEL,
 	KEY_DOWN,
 	KEY_UP,
-	WHEEL
+	CHAR_INPUT
 }
 
 struct Event
@@ -812,6 +819,7 @@ struct Event
 	float wheel;
 	int mouse_button;
 	int key;
+	Char32 character;
 }
 
 struct KeyGeometry

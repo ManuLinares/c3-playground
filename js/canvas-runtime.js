@@ -68,6 +68,21 @@ function createWebGLRenderer(canvas, width, height) {
 	};
 }
 
+export const EVENT_KIND = {
+	NONE: 0,
+	MOUSE_MOVE: 1,
+	MOUSE_DOWN: 2,
+	MOUSE_UP: 3,
+	MOUSE_WHEEL: 4,
+	KEY_DOWN: 5,
+	KEY_UP: 6,
+	CHAR_INPUT: 7
+};
+
+// Must match sizeof(Event) in C3: 7 x 32-bit fields (kind, mouse_pos.x, mouse_pos.y, wheel, mouse_button, key, character)
+const EVENT_STRUCT_BYTES = 7 * 4;
+const MAX_EVENTS = 65536;
+
 export function startCanvasRuntime(instance) {
 	const updateCanvasFn = instance.wasmExports?.update_canvas;
 	if (!updateCanvasFn) return;
@@ -92,10 +107,31 @@ export function startCanvasRuntime(instance) {
 
 	window.dispatchEvent(new Event('resize'));
 
+	// Invisible Textarea for Native OS Text Composition (Dead Keys, Accents, AltGr, IME)
+	let hiddenInput = document.getElementById("canvasHiddenInput");
+	if (!hiddenInput) {
+		hiddenInput = document.createElement("textarea");
+		hiddenInput.id = "canvasHiddenInput";
+		hiddenInput.style.cssText = "position:fixed; opacity:0; width:1px; height:1px; top:0; left:0; z-index:-1; pointer-events:none;";
+		hiddenInput.autocomplete = "off";
+		hiddenInput.autocorrect = "off";
+		hiddenInput.autocapitalize = "off";
+		hiddenInput.spellcheck = false;
+		document.body.appendChild(hiddenInput);
+	}
+
 	let pendingEvents = [];
-	function addEvent(kind, x, y, wheel, button, key) {
-		if (pendingEvents.length < 64) {
-			pendingEvents.push({ kind, x: x || 0, y: y || 0, wheel: wheel || 0, button: button || 0, key: key || 0 });
+	function addEvent(kind, x, y, wheel, button, key, character) {
+		if (pendingEvents.length < MAX_EVENTS) {
+			pendingEvents.push({
+				kind,
+				x: x || 0,
+				y: y || 0,
+				wheel: wheel || 0,
+				button: button || 0,
+				key: key || 0,
+				character: character || 0
+			});
 		}
 	}
 
@@ -126,51 +162,157 @@ export function startCanvasRuntime(instance) {
 		};
 	}
 
-	const onMouseMove = (e) => { const c = getCanvasCoords(e); addEvent(1, c.x, c.y, 0, 0, 0); };
-	const onMouseDown = (e) => { invalidateCanvasRect(); resumeAudioIfSuspended(); const c = getCanvasCoords(e); addEvent(2, c.x, c.y, 0, e.button, 0); };
-	const onMouseUp = (e) => { const c = getCanvasCoords(e); addEvent(3, c.x, c.y, 0, e.button, 0); };
-	const onWheel = (e) => { const c = getCanvasCoords(e); addEvent(6, c.x, c.y, e.deltaY > 0 ? -1.0 : 1.0, 0, 0); };
+	const focusHiddenInput = () => {
+		try { hiddenInput.focus(); } catch (e) { }
+	};
 
-	const getKeyCode = (e) => {
-		// Printable characters (a-z, A-Z, 0-9, symbols) return their ASCII/UTF-16 code
-		if (e.key.length === 1) return e.key.charCodeAt(0);
-		// Special keys (Control, Alt, Super, F1-F12, Arrows, etc.) return their standard key code
+	const isExternalInputFocused = () => {
+		return document.activeElement &&
+			['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName) &&
+			document.activeElement !== hiddenInput;
+	};
+
+	const onMouseMove = (e) => { const c = getCanvasCoords(e); addEvent(EVENT_KIND.MOUSE_MOVE, c.x, c.y, 0, 0, 0, 0); };
+	const onMouseDown = (e) => {
+		invalidateCanvasRect();
+		resumeAudioIfSuspended();
+		// Re-focus after browser's default click cycle finishes
+		setTimeout(focusHiddenInput, 0);
+		const c = getCanvasCoords(e);
+		addEvent(EVENT_KIND.MOUSE_DOWN, c.x, c.y, 0, e.button, 0, 0);
+	};
+	const onMouseUp = (e) => { const c = getCanvasCoords(e); addEvent(EVENT_KIND.MOUSE_UP, c.x, c.y, 0, e.button, 0, 0); };
+	const onWheel = (e) => { const c = getCanvasCoords(e); addEvent(EVENT_KIND.MOUSE_WHEEL, c.x, c.y, e.deltaY > 0 ? -1.0 : 1.0, 0, 0, 0); };
+
+	// Standard GLFW Virtual Keycodes (>= 256 for non-printable control keys)
+	const VIRTUAL_KEY_MAP = {
+		'Backspace': 259, 'Tab': 258, 'Enter': 257, 'Escape': 256,
+		'Delete': 261, 'Insert': 260, 'PageUp': 266, 'PageDown': 267,
+		'End': 269, 'Home': 268, 'ArrowLeft': 263, 'ArrowUp': 265,
+		'ArrowRight': 262, 'ArrowDown': 264, 'Shift': 340, 'Control': 341,
+		'Alt': 342, 'AltGraph': 346, 'Meta': 343, 'CapsLock': 280,
+		'NumLock': 282, 'ScrollLock': 281,
+		'F1': 290, 'F2': 291, 'F3': 292, 'F4': 293, 'F5': 294, 'F6': 295,
+		'F7': 296, 'F8': 297, 'F9': 298, 'F10': 299, 'F11': 300, 'F12': 301
+	};
+
+	// Non-printable keys that scroll the page or shift focus
+	const NAV_PREVENT_DEFAULT = new Set([
+		'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown',
+		'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11'
+	]);
+
+	const getVirtualKey = (e) => {
+		if (!e || !e.key) return e?.keyCode || 0;
+		if (VIRTUAL_KEY_MAP[e.key] !== undefined) return VIRTUAL_KEY_MAP[e.key];
+		if (e.key.length === 1 && e.key !== 'Dead') {
+			return /^[a-zA-Z]$/.test(e.key) ? e.key.toUpperCase().charCodeAt(0) : e.key.charCodeAt(0);
+		}
 		return e.keyCode || 0;
 	};
 
+	// Text Composition Handler (Processes dead keys, accents, AltGr, IME)
+	const onBeforeInput = (e) => {
+		if (e.isComposing || e.inputType === 'insertCompositionText' || e.inputType === 'insertFromPaste') return;
+		if (e.data) {
+			for (const char of e.data) {
+				if (char === '\r') continue;
+				const cp = char.codePointAt(0);
+				if (cp) addEvent(EVENT_KIND.CHAR_INPUT, 0, 0, 0, 0, getVirtualKey({ key: char }), cp);
+			}
+		}
+		setTimeout(() => { hiddenInput.value = ""; }, 0);
+	};
+
+	const onCopy = (e) => {
+		const getClipboardFn = instance.wasmExports?.get_clipboard_text;
+		if (getClipboardFn) {
+			const ptr = getClipboardFn();
+			if (ptr) {
+				const wasmMem = instance.wasmMemory || instance.wasmExports?.memory || instance.asm?.memory;
+				if (wasmMem?.buffer) {
+					const u8 = new Uint8Array(wasmMem.buffer, ptr);
+					let end = 0;
+					while (u8[end] !== 0 && end < 512 * 1024) end++;
+					if (end > 0) {
+						const str = new TextDecoder().decode(u8.subarray(0, end));
+						e.clipboardData?.setData('text/plain', str);
+						e.preventDefault();
+					}
+				}
+			}
+		}
+	};
+
+	const onCut = (e) => {
+		onCopy(e);
+	};
+
+	const onPaste = (e) => {
+		const text = e.clipboardData?.getData('text/plain');
+		if (text) {
+			for (const char of text) {
+				if (char === '\r') continue;
+				const cp = char.codePointAt(0);
+				if (cp) addEvent(EVENT_KIND.CHAR_INPUT, 0, 0, 0, 0, getVirtualKey({ key: char }), cp);
+			}
+			e.preventDefault();
+			setTimeout(() => { hiddenInput.value = ""; }, 0);
+		}
+	};
+
 	const onKeyDown = (e) => {
-		if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
-		const k = getKeyCode(e);
+		if (isExternalInputFocused()) return;
+		
+		const k = getVirtualKey(e);
 		if (k > 0) {
-			addEvent(4, 0, 0, 0, 0, k);
-			if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+			addEvent(EVENT_KIND.KEY_DOWN, 0, 0, 0, 0, k, 0);
+
+			if (NAV_PREVENT_DEFAULT.has(e.key)) {
+				e.preventDefault();
+			}
 		}
 	};
 
 	const onKeyUp = (e) => {
-		if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
-		const k = getKeyCode(e);
-		if (k > 0) addEvent(5, 0, 0, 0, 0, k);
+		if (isExternalInputFocused()) return;
+		const k = getVirtualKey(e);
+		if (k > 0) {
+			addEvent(EVENT_KIND.KEY_UP, 0, 0, 0, 0, k, 0);
+			if (e.key === 'Tab') e.preventDefault();
+		}
 	};
 
 	const onContextMenu = (e) => e.preventDefault();
+
+	const onFullscreenChange = () => {
+		invalidateCanvasRect();
+		setTimeout(focusHiddenInput, 0);
+	};
 
 	canvas.addEventListener('mousemove', onMouseMove);
 	canvas.addEventListener('mousedown', onMouseDown);
 	canvas.addEventListener('mouseup', onMouseUp);
 	canvas.addEventListener('wheel', onWheel, { passive: true });
 	canvas.addEventListener('contextmenu', onContextMenu);
+	hiddenInput.addEventListener('beforeinput', onBeforeInput);
+	hiddenInput.addEventListener('copy', onCopy);
+	hiddenInput.addEventListener('cut', onCut);
+	hiddenInput.addEventListener('paste', onPaste);
 	window.addEventListener('keydown', onKeyDown);
 	window.addEventListener('keyup', onKeyUp);
 	window.addEventListener('resize', invalidateCanvasRect);
-	document.addEventListener('fullscreenchange', invalidateCanvasRect);
+	document.addEventListener('fullscreenchange', onFullscreenChange);
 
 	const canvasResizeObserver = new ResizeObserver(() => invalidateCanvasRect());
 	canvasResizeObserver.observe(container);
 
+	focusHiddenInput();
+
 	const mallocFn = instance.wasmExports?.malloc;
 	const freeFn = instance.wasmExports?.free;
-	const eventsBufferPtr = mallocFn ? mallocFn(64 * 24) : 0;
+	// Allocates buffer for MAX_EVENTS events x EVENT_STRUCT_BYTES each
+	const eventsBufferPtr = mallocFn ? mallocFn(MAX_EVENTS * EVENT_STRUCT_BYTES) : 0;
 	const sliceHeaderPtr = mallocFn ? mallocFn(8) : 0;
 
 	activeInputCleanup = () => {
@@ -179,11 +321,20 @@ export function startCanvasRuntime(instance) {
 		canvas.removeEventListener('mouseup', onMouseUp);
 		canvas.removeEventListener('wheel', onWheel);
 		canvas.removeEventListener('contextmenu', onContextMenu);
+		hiddenInput.removeEventListener('beforeinput', onBeforeInput);
+		hiddenInput.removeEventListener('copy', onCopy);
+		hiddenInput.removeEventListener('cut', onCut);
+		hiddenInput.removeEventListener('paste', onPaste);
 		window.removeEventListener('keydown', onKeyDown);
 		window.removeEventListener('keyup', onKeyUp);
 		window.removeEventListener('resize', invalidateCanvasRect);
-		document.removeEventListener('fullscreenchange', invalidateCanvasRect);
+		document.removeEventListener('fullscreenchange', onFullscreenChange);
 		canvasResizeObserver.disconnect();
+
+		if (hiddenInput && hiddenInput.parentNode) {
+			hiddenInput.parentNode.removeChild(hiddenInput);
+		}
+
 		if (freeFn) {
 			if (eventsBufferPtr) freeFn(eventsBufferPtr);
 			if (sliceHeaderPtr) freeFn(sliceHeaderPtr);
@@ -203,17 +354,18 @@ export function startCanvasRuntime(instance) {
 
 		if (currentBuffer && eventsBufferPtr) {
 			if (eventCount > 0) {
-				const i32 = new Int32Array(currentBuffer, eventsBufferPtr, eventCount * 6);
-				const f32 = new Float32Array(currentBuffer, eventsBufferPtr, eventCount * 6);
+				const i32 = new Int32Array(currentBuffer, eventsBufferPtr, eventCount * 7);
+				const f32 = new Float32Array(currentBuffer, eventsBufferPtr, eventCount * 7);
 				for (let i = 0; i < eventCount; i++) {
 					const ev = pendingEvents[i];
-					const offset = i * 6;
+					const offset = i * 7;
 					i32[offset + 0] = ev.kind;
 					f32[offset + 1] = ev.x;
 					f32[offset + 2] = ev.y;
 					f32[offset + 3] = ev.wheel;
 					i32[offset + 4] = ev.button;
 					i32[offset + 5] = ev.key;
+					i32[offset + 6] = ev.character;
 				}
 				pendingEvents.length = 0;
 			}
@@ -237,7 +389,6 @@ export function startCanvasRuntime(instance) {
 			if (webglRenderer) {
 				webglRenderer.render(pixelView);
 			} else if (ctx2d) {
-				//ctx2d.putImageData(new ImageData(new Uint8ClampedArray(currentBuffer, ptr, size), width, height), 0, 0);
 				cachedImageData.data.set(pixelView);
 				ctx2d.putImageData(cachedImageData, 0, 0);
 			}

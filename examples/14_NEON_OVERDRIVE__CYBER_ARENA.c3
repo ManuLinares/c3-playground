@@ -17,9 +17,10 @@ enum EventKind : char
 	MOUSE_MOVE,
 	MOUSE_DOWN,
 	MOUSE_UP,
+	MOUSE_WHEEL,
 	KEY_DOWN,
 	KEY_UP,
-	WHEEL
+	CHAR_INPUT
 }
 
 struct Event
@@ -29,12 +30,14 @@ struct Event
 	float wheel;
 	int mouse_button;
 	int key;
+	Char32 character;
 }
 
-const int KEY_UP    = 38;
-const int KEY_DOWN  = 40;
-const int KEY_LEFT  = 37;
-const int KEY_RIGHT = 39;
+// Standard GLFW Virtual Keycodes for Arrows
+const int KEY_RIGHT = 262;
+const int KEY_LEFT  = 263;
+const int KEY_DOWN  = 264;
+const int KEY_UP    = 265;
 const int KEY_SPACE = 32;
 
 // --- Canvas Object & Type Methods ---
@@ -350,7 +353,7 @@ int frame_count          = 0;
 
 Vec2 mouse_pos  = { 320.0f, 240.0f };
 bool mouse_down = false;
-bool[256] keys_down;
+bool[350] keys_down;
 
 // Audio SFX Timers
 float sfx_laser     = 0.0f;
@@ -569,7 +572,7 @@ fn Rgba* update_canvas(int width, int height, float dt, Event[] events) @export(
 			case MOUSE_UP:
 				if (event.mouse_button == 0) mouse_down = false;
 
-			case WHEEL:
+			case MOUSE_WHEEL:
 				if (game_state == PLAYING)
 				{
 					if (event.wheel > 0)
@@ -585,7 +588,7 @@ fn Rgba* update_canvas(int width, int height, float dt, Event[] events) @export(
 			case KEY_DOWN:
 				int k = event.key;
 				if (k >= 'A' && k <= 'Z') k += 32;
-				if (k < 256) keys_down[k] = true;
+				if (k < 350) keys_down[k] = true;
 
 				if (game_state == PLAYING)
 				{
@@ -601,7 +604,7 @@ fn Rgba* update_canvas(int width, int height, float dt, Event[] events) @export(
 			case KEY_UP:
 				int k_up = event.key;
 				if (k_up >= 'A' && k_up <= 'Z') k_up += 32;
-				if (k_up < 256) keys_down[k_up] = false;
+				if (k_up < 350) keys_down[k_up] = false;
 
 			default: break;
 		}
