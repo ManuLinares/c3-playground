@@ -132,10 +132,21 @@ function clearConsole() {
 }
 
 function formatConsoleOutput(text) {
-	const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-	return escaped.replace(/(?:\/main\.c3|main\.c3):(\d+)(?::(\d+))?/g, (match, line, col) => {
+	let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+	// Convert local main.c3 error paths to clickable spans (navigates to Monaco editor)
+	escaped = escaped.replace(/(?:\/main\.c3|main\.c3):(\d+)(?::(\d+))?/g, (match, line, col) => {
 		return `<span class="console-link" style="color:#38bdf8;cursor:pointer;font-weight:bold;" data-line="${line}" data-col="${col || 1}">${match}</span>`;
 	});
+
+	// Convert /usr/lib/c3/std/... error notes to GitHub source links
+	const stdlibRegex = /(?:\/usr\/lib\/c3\/std\/|std\/)([^:\s)]+):(\d+)(?::(\d+))?/g;
+	escaped = escaped.replace(stdlibRegex, (match, subpath, line) => {
+		const githubUrl = `https://github.com/c3lang/c3c/blob/master/lib/std/${subpath}#L${line}`;
+		return `<a href="${githubUrl}" target="_blank" class="console-link" style="color:#38bdf8;text-decoration:underline;cursor:pointer;font-weight:bold;">${match}</a>`;
+	});
+
+	return escaped;
 }
 
 function setStatus(text, stateClass) {
