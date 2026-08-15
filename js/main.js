@@ -1,14 +1,16 @@
 // js/main.js
-import { EXAMPLES_MANIFEST, fetchExampleCode } from './examples.js';
-import { setupMonacoC3, parseCompilerErrors } from './monaco-c3.js';
+import { EXAMPLES_MANIFEST, fetchExampleCode, prefetchAllExamples } from './examples.js';
+import { setupMonacoC3, parseCompilerErrors, registerEditorCommands } from './monaco-c3.js';
 import {
 	preloadCompilerAssets,
 	executeCompilerTask,
 	queryCompilerVersion,
-	queueDocgenUpdate
+	queueDocgenUpdate,
+	triggerStdlibDocgenHtml,
+	readStdlibFile,
+	openStdlibDoc,
+	getDocsIframePatchJs
 } from './compiler.js';
-import { startCanvasRuntime, stopCanvasRuntime } from './canvas-runtime.js';
-import { startAudioRuntime, stopAudioRuntime, resumeAudioIfSuspended } from './audio-runtime.js';
 import { getSharedCode, createShareLink } from './share.js';
 
 // DOM Elements
@@ -149,14 +151,94 @@ function formatConsoleOutput(text) {
 	return escaped;
 }
 
+// Global Audio Context Tracker to ensure audio never lingers across switches
+const activeAudioContexts = new Set();
+const OrigAudioContext = window.AudioContext || window.webkitAudioContext;
+if (OrigAudioContext && !window.__c3AudioTracked) {
+	window.__c3AudioTracked = true;
+	const PatchedAudioContext = function(...args) {
+		const ctx = new OrigAudioContext(...args);
+		activeAudioContexts.add(ctx);
+		const origClose = ctx.close;
+		ctx.close = function() {
+			activeAudioContexts.delete(ctx);
+			return origClose.apply(this, arguments);
+		};
+		return ctx;
+	};
+	PatchedAudioContext.prototype = OrigAudioContext.prototype;
+	window.AudioContext = PatchedAudioContext;
+	if (window.webkitAudioContext) window.webkitAudioContext = PatchedAudioContext;
+}
+
+let currentEmscriptenInstance = null;
+
 function setStatus(text, stateClass) {
 	statusEl.textContent = text;
 	statusEl.className = "status-badge " + (stateClass || "");
 }
 
+function resumeAudioIfSuspended() {
+	for (const ctx of activeAudioContexts) {
+		if (ctx && ctx.state === "suspended") {
+			ctx.resume().catch(() => {});
+		}
+	}
+	if (window.miniaudio && window.miniaudio.devices) {
+		for (const dev of window.miniaudio.devices) {
+			if (dev && dev.context && dev.context.state === "suspended") {
+				dev.context.resume().catch(() => {});
+			}
+		}
+	}
+}
+
 function stopExecution() {
-	stopCanvasRuntime();
-	stopAudioRuntime();
+	const container = document.getElementById("canvasContainer");
+	if (container) container.style.display = "none";
+
+	// 1. Cancel running Emscripten main loop / animation frame
+	if (currentEmscriptenInstance) {
+		try {
+			if (typeof currentEmscriptenInstance.cancelMainLoop === "function") {
+				currentEmscriptenInstance.cancelMainLoop();
+			} else if (typeof currentEmscriptenInstance._emscripten_cancel_main_loop === "function") {
+				currentEmscriptenInstance._emscripten_cancel_main_loop();
+			} else if (currentEmscriptenInstance.Browser && currentEmscriptenInstance.Browser.mainLoop) {
+				currentEmscriptenInstance.Browser.mainLoop.pause();
+				currentEmscriptenInstance.Browser.mainLoop.func = null;
+			}
+		} catch (e) {}
+		currentEmscriptenInstance = null;
+	}
+
+	// 2. Close all active Web Audio contexts
+	for (const ctx of activeAudioContexts) {
+		try {
+			if (ctx && ctx.state !== "closed") {
+				ctx.close().catch(() => {});
+			}
+		} catch (e) {}
+	}
+	activeAudioContexts.clear();
+
+	// 3. Miniaudio device cleanup
+	if (window.miniaudio && window.miniaudio.devices) {
+		for (const dev of window.miniaudio.devices) {
+			if (dev) {
+				if (dev.node) {
+					try { dev.node.disconnect(); } catch (e) {}
+					dev.node.onaudioprocess = null;
+				}
+				if (dev.context && dev.context.state !== "closed") {
+					try { dev.context.close().catch(() => {}); } catch (e) {}
+				}
+			}
+		}
+		window.miniaudio.devices = [];
+	}
+
+	getFreshCanvas();
 }
 
 // Extra Flags & Settings Popover
@@ -184,6 +266,29 @@ document.onclick = (e) => {
 	}
 };
 
+export function fitCanvasToContainer() {
+	const wrapper = document.querySelector(".canvas-wrapper");
+	const canvas = document.getElementById("canvas");
+	if (!wrapper || !canvas || !canvas.width || !canvas.height) return;
+
+	const wrapW = wrapper.clientWidth;
+	const wrapH = wrapper.clientHeight;
+	if (wrapW <= 0 || wrapH <= 0) return;
+
+	const scale = Math.min(wrapW / canvas.width, wrapH / canvas.height);
+	const targetW = Math.max(1, Math.floor(canvas.width * scale));
+	const targetH = Math.max(1, Math.floor(canvas.height * scale));
+
+	canvas.style.width = targetW + "px";
+	canvas.style.height = targetH + "px";
+}
+
+globalThis.fitCanvasToContainer = fitCanvasToContainer;
+
+const canvasResizeObserver = new ResizeObserver(() => {
+	fitCanvasToContainer();
+});
+
 if (canvasFullscreenBtn) {
 	canvasFullscreenBtn.onclick = () => {
 		if (!document.fullscreenElement) {
@@ -192,12 +297,16 @@ if (canvasFullscreenBtn) {
 			document.exitFullscreen();
 		}
 		canvasFullscreenBtn.blur();
-		const hiddenInput = document.getElementById("canvasHiddenInput");
-		if (hiddenInput) {
-			try { hiddenInput.focus(); } catch (e) { }
+		const canvasEl = document.getElementById("canvas");
+		if (canvasEl) {
+			try { canvasEl.focus(); } catch (e) {}
 		}
 	};
 }
+
+document.addEventListener("fullscreenchange", () => {
+	setTimeout(fitCanvasToContainer, 50);
+});
 
 window.addEventListener('click', resumeAudioIfSuspended, { passive: true });
 
@@ -207,7 +316,7 @@ require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0
 require(['vs/editor/editor.main'], async () => {
 	setupMonacoC3(monaco);
 
-	// 1. Populate Examples Dropdown
+	// 1. Populate Examples Dropdown with Categorized optgroup Sections
 	exampleSelect.replaceChildren();
 	const placeholderOpt = document.createElement("option");
 	placeholderOpt.value = "";
@@ -217,17 +326,47 @@ require(['vs/editor/editor.main'], async () => {
 	placeholderOpt.textContent = "Examples...";
 	exampleSelect.appendChild(placeholderOpt);
 
+	// Group examples by category
+	const categories = new Map();
 	EXAMPLES_MANIFEST.forEach(ex => {
-		const opt = document.createElement("option");
-		opt.value = ex.file;
-		opt.textContent = ex.name;
-		exampleSelect.appendChild(opt);
+		const cat = ex.category || "General";
+		if (!categories.has(cat)) categories.set(cat, []);
+		categories.get(cat).push(ex);
 	});
 
-	// 2. Load Initial Code
-	const sharedCode = await getSharedCode();
-	const savedCode = localStorage.getItem("c3_playground_code");
-	const initialCode = sharedCode || savedCode || await fetchExampleCode(EXAMPLES_MANIFEST[0].file);
+	for (const [catName, examples] of categories.entries()) {
+		const group = document.createElement("optgroup");
+		group.label = catName;
+		examples.forEach(ex => {
+			const opt = document.createElement("option");
+			opt.value = ex.file;
+			opt.dataset.id = ex.id;
+			opt.textContent = ex.name;
+			group.appendChild(opt);
+		});
+		exampleSelect.appendChild(group);
+	}
+
+	// 2. Load Initial Code (supporting URL example, paste snippet, or localStorage)
+	const shared = await getSharedCode();
+	let initialCode = "";
+	let matchedExampleFile = null;
+
+	if (shared && shared.type === 'example') {
+		const found = EXAMPLES_MANIFEST.find(e => e.id === shared.id || e.file === shared.id);
+		if (found) {
+			matchedExampleFile = found.file;
+			initialCode = await fetchExampleCode(found.file);
+		}
+	} else if (shared && shared.type === 'snippet') {
+		initialCode = shared.code;
+	}
+
+	if (!initialCode) {
+		const savedCode = localStorage.getItem("c3_playground_code");
+		initialCode = savedCode || await fetchExampleCode(EXAMPLES_MANIFEST[0].file);
+		if (!savedCode) matchedExampleFile = EXAMPLES_MANIFEST[0].file;
+	}
 
 	// 3. Create Monaco Instance with Full Settings
 	editor = monaco.editor.create(document.getElementById("code"), {
@@ -246,8 +385,13 @@ require(['vs/editor/editor.main'], async () => {
 		}
 	});
 
+	if (matchedExampleFile) {
+		exampleSelect.value = matchedExampleFile;
+	}
+
 	editor.layout();
 	editor.focus();
+	registerEditorCommands(monaco);
 
 	// 4. Save edits & reset dropdown placeholder when code changes
 	editor.onDidChangeModelContent(() => {
@@ -263,22 +407,39 @@ require(['vs/editor/editor.main'], async () => {
 
 	editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveCodeToDisk);
 
-	// 5. Fetch example only when explicitly chosen
+	// 5. Fetch example, update URL query & auto-compile and run immediately
 	exampleSelect.onchange = async () => {
 		if (!exampleSelect.value) return;
 		clearConsole();
 		const selectedFile = exampleSelect.value;
 		const code = await fetchExampleCode(selectedFile);
 		editor.setValue(code);
+		editor.setScrollPosition({ scrollTop: 0, scrollLeft: 0 });
+		editor.setPosition({ lineNumber: 1, column: 1 });
 		localStorage.setItem("c3_playground_code", code);
 		exampleSelect.value = selectedFile;
-		if (window.location.hash) {
-			history.replaceState(null, null, window.location.pathname + window.location.search);
+
+		// Update URL parameter so example is shareable
+		const selectedEx = EXAMPLES_MANIFEST.find(e => e.file === selectedFile);
+		if (selectedEx) {
+			const newUrl = new URL(window.location);
+			newUrl.searchParams.set('example', selectedEx.id);
+			newUrl.hash = '';
+			history.replaceState(null, null, newUrl.toString());
 		}
+
+		// Auto-compile and run the selected example
+		if (!compileBtn.disabled) {
+			compileBtn.click();
+		}
+
+		// Return focus to the editor so the user can read/edit immediately
+		editor.focus();
 	};
 
 	// 6. Compiler Pipeline Execution Handler
 	compileBtn.onclick = () => {
+		stopExecution();
 		resumeAudioIfSuspended();
 		clearConsole();
 
@@ -310,11 +471,107 @@ require(['vs/editor/editor.main'], async () => {
 		setStatus("Compiler Ready", "ready");
 		compileBtn.disabled = false;
 		queueDocgenUpdate(editor.getValue());
+		// Kick off stdlib HTML docgen in the background - no-op if already cached
+		setTimeout(() => triggerStdlibDocgenHtml(), 100);
+
+		// Auto-run on startup if loaded directly from an example URL param
+		if (shared && shared.type === 'example' && matchedExampleFile) {
+			compileBtn.click();
+		}
+
+		// Background prefetch all examples so dropdown switches are instant
+		prefetchAllExamples();
 	} catch (err) {
 		setStatus("Initialization Failed", "");
 		appendConsole(`\n[Fatal Error] Failed to initialize compiler: ${err.message}\n`);
 	}
 });
+
+// --- Stdlib Docs Modal ---
+const stdlibDocsModal = document.getElementById('stdlibDocsModal');
+const stdlibDocsIframe = document.getElementById('stdlibDocsIframe');
+const stdlibDocsClose = document.getElementById('stdlibDocsClose');
+
+function closeStdlibModal() {
+	stdlibDocsModal.classList.remove('open');
+	stdlibDocsIframe.src = 'about:blank';
+}
+
+stdlibDocsClose.addEventListener('click', closeStdlibModal);
+stdlibDocsModal.addEventListener('click', (e) => {
+	if (e.target === stdlibDocsModal) closeStdlibModal();
+});
+document.addEventListener('keydown', (e) => {
+	if (e.key === 'Escape' && stdlibDocsModal.classList.contains('open')) closeStdlibModal();
+});
+
+// Nav docs button → open local docs modal
+document.getElementById('docsBtn').addEventListener('click', () => openStdlibDoc(''));
+
+
+window.addEventListener('message', (e) => {
+	if (!e.data || e.source !== stdlibDocsIframe.contentWindow) return;
+	if (e.data.type === 'close-stdlib-docs') {
+		closeStdlibModal();
+	} else if (e.data.type === 'read_stdlib_file') {
+		const { path, line } = e.data;
+		readStdlibFile(path, (content, error) => {
+			try {
+				stdlibDocsIframe.contentWindow.postMessage(
+					{ type: 'stdlib_file_content', path, line, content, error }, '*'
+				);
+			} catch (_) {}
+		});
+	}
+});
+
+window.addEventListener('open-stdlib-doc', (e) => {
+	const { html, uid } = e.detail;
+
+	// Patch the HTML before injecting as srcdoc:
+	let patched = html;
+
+	// 1. Inject iframe patch script (history sandbox override, file link observer, source viewer)
+	const patchScript = getDocsIframePatchJs();
+	if (patchScript) {
+		patched = patched.replace('<head>', `<head><script>${patchScript}<\/script>`);
+	}
+
+	// 2. Remove c3-lang.org assets blocked by CORP
+	patched = patched.replace(/<link[^>]+c3-lang\.org[^>]+>/gi, '');
+	patched = patched.replace(/<img[^>]+c3-lang\.org[^>]+>/gi, '');
+
+	stdlibDocsIframe.srcdoc = patched;
+	stdlibDocsModal.classList.add('open');
+	stdlibDocsIframe.onload = () => {
+		try { stdlibDocsIframe.contentWindow.location.hash = encodeURIComponent(uid); } catch {}
+		stdlibDocsIframe.onload = null;
+	};
+});
+
+
+function getFreshCanvas() {
+	const oldCanvas = document.getElementById("canvas");
+	if (!oldCanvas) return null;
+	const newCanvas = oldCanvas.cloneNode(false);
+	newCanvas.className = '';
+	newCanvas.style.cursor = '';
+	newCanvas.tabIndex = 0;
+	newCanvas.addEventListener("mousedown", () => newCanvas.focus());
+	newCanvas.addEventListener("contextmenu", (e) => e.preventDefault());
+	oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
+
+	if (document.pointerLockElement) {
+		try { document.exitPointerLock(); } catch (_) {}
+	}
+
+	const wrapper = document.querySelector(".canvas-wrapper");
+	if (wrapper) {
+		canvasResizeObserver.disconnect();
+		canvasResizeObserver.observe(wrapper);
+	}
+	return newCanvas;
+}
 
 async function runEmscriptenProgram(wasmBuffer) {
 	const runtimeFn = window.C3EmscriptenRuntime;
@@ -324,22 +581,29 @@ async function runEmscriptenProgram(wasmBuffer) {
 	}
 
 	try {
+		const canvasEl = getFreshCanvas();
+
 		const instance = await runtimeFn({
 			wasmBinary: wasmBuffer,
+			canvas: canvasEl,
 			print: (t) => appendConsole(t + "\n"),
 			printErr: (t) => appendConsole(t + "\n", true),
 			onExit: (code) => appendConsole(`\nProgram exited with code: ${code}\n`),
 			noInitialRun: true
 		});
 
+		currentEmscriptenInstance = instance;
+
 		const mainFn = instance.wasmExports?.main || instance.wasmExports?.['__main_argc_argv'];
 		if (mainFn) {
 			const ret = mainFn(0, 0);
 			appendConsole(`\n[Process finished with exit code ${ret}]\n`);
-			startCanvasRuntime(instance);
-			startAudioRuntime(instance);
 		}
 	} catch (err) {
+		if (err === "unwind" || err?.name === "ExitStatus") {
+			// Normal Emscripten loop unwinding when simulate_infinite_loop is 1
+			return;
+		}
 		appendConsole(`\n[Execution Error] ${err}\n`);
 	}
 }

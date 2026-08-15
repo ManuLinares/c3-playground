@@ -1,5 +1,6 @@
 module main;
 import std;
+import raylib6;
 
 alias Rgba = char[<4>];
 
@@ -10,35 +11,6 @@ struct Rect
 	int w;
 	int h;
 }
-
-enum EventKind : char
-{
-	NONE,
-	MOUSE_MOVE,
-	MOUSE_DOWN,
-	MOUSE_UP,
-	MOUSE_WHEEL,
-	KEY_DOWN,
-	KEY_UP,
-	CHAR_INPUT
-}
-
-struct Event
-{
-	EventKind kind;
-	Vec2 mouse_pos;
-	float wheel;
-	int mouse_button;
-	int key;
-	Char32 character;
-}
-
-// Standard GLFW Virtual Keycodes for Arrows
-const int KEY_RIGHT = 262;
-const int KEY_LEFT  = 263;
-const int KEY_DOWN  = 264;
-const int KEY_UP    = 265;
-const int KEY_SPACE = 32;
 
 // --- Canvas Object & Type Methods ---
 struct Canvas
@@ -353,7 +325,6 @@ int frame_count          = 0;
 
 Vec2 mouse_pos  = { 320.0f, 240.0f };
 bool mouse_down = false;
-bool[350] keys_down;
 
 // Audio SFX Timers
 float sfx_laser     = 0.0f;
@@ -410,7 +381,6 @@ fn void reset_game()
 	for (sz i = 0; i < enemies.len; i++) enemies[i].active = false;
 	for (sz i = 0; i < particles.len; i++) particles[i].active = false;
 
-	keys_down[..] = false;
 	mouse_down = false;
 
 	score = 0;
@@ -547,67 +517,35 @@ fn void fire_weapon()
 	}
 }
 
-// --- Exported Canvas Renderer ---
-fn Rgba* update_canvas(int width, int height, float dt, Event[] events) @export("update_canvas")
+// --- Frame Update and Render ---
+fn void update_draw_frame()
 {
-	static Rgba[] pixels;
-	if (pixels.len < width * height) pixels = mem::new_array(Rgba, width * height);
+	float dt   = rl::get_frame_time();
+	int width  = 640;
+	int height = 480;
 
+	Rgba[] pixels   = ((Rgba*)canvas_image.data)[0..width * height];
 	Canvas canvas   = { .pixels = pixels, .width = width, .height = height };
 	Vec2 move_input = { 0.0f, 0.0f };
 
-	// Event Processing
-	foreach (event : events)
+	// Input via Raylib
+	RLVector2 rl_mouse = rl::get_mouse_position();
+	mouse_pos = { rl_mouse.x, rl_mouse.y };
+	mouse_down = rl::is_mouse_button_down(RLMouseButton.LEFT);
+
+	if (rl::is_mouse_button_pressed(RLMouseButton.LEFT) || rl::is_key_pressed(RLKeyboardKey.SPACE))
 	{
-		switch (event.kind)
-		{
-			case MOUSE_MOVE:
-				mouse_pos = event.mouse_pos;
+		if (game_state == START || game_state == GAMEOVER) reset_game();
+	}
 
-			case MOUSE_DOWN:
-				mouse_pos = event.mouse_pos;
-				if (event.mouse_button == 0) mouse_down = true;
-				if (game_state == START || game_state == GAMEOVER) reset_game();
-
-			case MOUSE_UP:
-				if (event.mouse_button == 0) mouse_down = false;
-
-			case MOUSE_WHEEL:
-				if (game_state == PLAYING)
-				{
-					if (event.wheel > 0)
-					{
-						player.weapon = (player.weapon + 1) % 3;
-					}
-					else if (event.wheel < 0)
-					{
-						player.weapon = (player.weapon + 2) % 3;
-					}
-				}
-
-			case KEY_DOWN:
-				int k = event.key;
-				if (k >= 'A' && k <= 'Z') k += 32;
-				if (k < 350) keys_down[k] = true;
-
-				if (game_state == PLAYING)
-				{
-					if (k == '1') player.weapon = 0;
-					if (k == '2') player.weapon = 1;
-					if (k == '3') player.weapon = 2;
-				}
-				if (k == KEY_SPACE)
-				{
-					if (game_state == START || game_state == GAMEOVER) reset_game();
-				}
-
-			case KEY_UP:
-				int k_up = event.key;
-				if (k_up >= 'A' && k_up <= 'Z') k_up += 32;
-				if (k_up < 350) keys_down[k_up] = false;
-
-			default: break;
-		}
+	float wheel = rl::get_mouse_wheel_move();
+	if (game_state == PLAYING)
+	{
+		if (wheel > 0) player.weapon = (player.weapon + 1) % 3;
+		if (wheel < 0) player.weapon = (player.weapon + 2) % 3;
+		if (rl::is_key_pressed(RLKeyboardKey.ONE)) player.weapon = 0;
+		if (rl::is_key_pressed(RLKeyboardKey.TWO)) player.weapon = 1;
+		if (rl::is_key_pressed(RLKeyboardKey.THREE)) player.weapon = 2;
 	}
 
 	// Update Timers & Shake
@@ -625,10 +563,10 @@ fn Rgba* update_canvas(int width, int height, float dt, Event[] events) @export(
 	if (game_state == PLAYING)
 	{
 		// Player movement vector
-		if (keys_down['w'] || keys_down[KEY_UP]) move_input.y -= 1.0f;
-		if (keys_down['s'] || keys_down[KEY_DOWN]) move_input.y += 1.0f;
-		if (keys_down['a'] || keys_down[KEY_LEFT]) move_input.x -= 1.0f;
-		if (keys_down['d'] || keys_down[KEY_RIGHT]) move_input.x += 1.0f;
+		if (rl::is_key_down(RLKeyboardKey.W) || rl::is_key_down(RLKeyboardKey.UP)) move_input.y -= 1.0f;
+		if (rl::is_key_down(RLKeyboardKey.S) || rl::is_key_down(RLKeyboardKey.DOWN)) move_input.y += 1.0f;
+		if (rl::is_key_down(RLKeyboardKey.A) || rl::is_key_down(RLKeyboardKey.LEFT)) move_input.x -= 1.0f;
+		if (rl::is_key_down(RLKeyboardKey.D) || rl::is_key_down(RLKeyboardKey.RIGHT)) move_input.x += 1.0f;
 
 		if (move_input.length() > 0.001f)
 		{
@@ -983,7 +921,13 @@ fn Rgba* update_canvas(int width, int height, float dt, Event[] events) @export(
 	}
 
 	frame_count++;
-	return pixels;
+
+	canvas_texture.update(canvas_image.data);
+	rl::begin_drawing();
+	rl::clear_background(rl::BLACK);
+	rl::draw_texture(canvas_texture, 0, 0, rl::WHITE);
+	// rl::draw_fps(width - 80, 20);
+	rl::end_drawing();
 }
 
 // --- Dynamic Synthwave Chiptune Audio Engine ---
@@ -1005,12 +949,12 @@ const float[16] LEAD_NOTES = {
 	174.61f, 261.63f, 349.23f, 261.63f
 };
 
-fn float* update_audio(int samples) @export("update_audio")
+fn void audio_callback(void* buffer, uint frames)
 {
-	static float[1024] audio_buf;
+	float* samples   = (float*)buffer;
 	int step_samples = 5512; // 120 BPM 16th notes
 
-	for (int i = 0; i < samples; i++)
+	for (uint i = 0; i < frames; i++)
 	{
 		float out = 0.0f;
 
@@ -1036,7 +980,7 @@ fn float* update_audio(int samples) @export("update_audio")
 			if (sfx_laser > 0.0f)
 			{
 				float laser_freq = 800.0f * (sfx_laser / 0.12f);
-				out += math::sin(sample_count * laser_freq * 0.0001f) * 0.18f;
+				out += math::sin((float)sample_count * laser_freq * 0.0001f) * 0.18f;
 			}
 
 			// Explosion SFX
@@ -1046,25 +990,44 @@ fn float* update_audio(int samples) @export("update_audio")
 			}
 		}
 
-		audio_buf[i] = out;
+		samples[i] = out;
 	}
-	return &audio_buf;
 }
 
-fn int main()
+RLImage canvas_image;
+RLTexture canvas_texture;
+RLAudioStream audio_stream;
+
+fn int main(String[] args) @winmain
 {
-	io::printn("==========================================");
-	io::printn("       NEON OVERDRIVE: CYBER ARENA        ");
-	io::printn("==========================================");
-	io::printn("CONTROLS:");
-	io::printn("  WASD / Arrow Keys : Move Ship");
-	io::printn("  Mouse Cursor      : Aim Reticle");
-	io::printn("  Left Click (Hold) : Fire Weapon");
-	io::printn("  Scroll Wheel / 1-3: Switch Weapons");
-	io::printn("                        [1] Pulse Blaster");
-	io::printn("                        [2] Plasma Spread");
-	io::printn("                        [3] Devastator Cannon");
-	io::printn("  Space / Click     : Start / Restart Game");
-	io::printn("==========================================");
+	rl::init_window(640, 480, "NEON OVERDRIVE: CYBER ARENA - C3 & Raylib");
+	rl::hide_cursor();
+	rl::init_audio_device();
+
+	canvas_image = rl::gen_image_color(640, 480, rl::BLACK);
+	canvas_texture = rl::load_texture_from_image(canvas_image);
+
+	audio_stream = rl::load_audio_stream(44100, 32, 1);
+	audio_stream.set_callback(&audio_callback);
+	rl::play_audio_stream(audio_stream);
+
+	$if env::WASM:
+		emscripten_set_main_loop(&update_draw_frame, 60, 1);
+	$else
+		rl::set_target_fps(60);
+		while (!rl::window_should_close())
+		{
+			update_draw_frame();
+		}
+		rl::unload_audio_stream(audio_stream);
+		rl::close_audio_device();
+		rl::unload_texture(canvas_texture);
+		rl::unload_image(canvas_image);
+		rl::close_window();
+	$endif
+
 	return 0;
 }
+
+alias Em_callback_func = fn void();
+extern fn void emscripten_set_main_loop(Em_callback_func func, int fps, int simulate_infinite_loop);

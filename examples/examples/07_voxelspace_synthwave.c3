@@ -1,15 +1,19 @@
 module main;
+
 import std;
+import raylib6;
 
 alias Rgba = char[<4>];
+
+const int SCREEN_WIDTH  = 640;
+const int SCREEN_HEIGHT = 480;
 
 const int MAP_SIZE  = 256;
 const int MAP_MASK  = MAP_SIZE - 1;
 const int NUM_STARS = 300;
 
-const int BUFFER_SIZE   = 1024;
-const float SAMPLE_RATE = 44100.0f;
-const int STEP_SAMPLES  = 15 * 44100 / 128;
+const uint SAMPLE_RATE = 44100;
+const int STEP_SAMPLES = 15 * 44100 / 128;
 
 const float[8] BASS_ROOTS = { 55.0f, 55.0f, 43.65f, 43.65f, 65.41f, 65.41f, 49.00f, 49.00f };
 
@@ -28,8 +32,6 @@ struct Star
 }
 
 Star[NUM_STARS] stars;
-float[BUFFER_SIZE] audio_buffer;
-
 char[MAP_SIZE][MAP_SIZE] height_map;
 Rgba[MAP_SIZE][MAP_SIZE] color_map;
 
@@ -52,6 +54,10 @@ float[<4>] phase;
 float bass_phase_2      = 0.0f;
 float lead_delay_buffer = 0.0f;
 
+RLImage canvas_image;
+RLTexture canvas_texture;
+RLAudioStream audio_stream;
+
 fn float sample_height(float fx, float fy)
 {
 	int x0 = (int)math::floor(fx) & MAP_MASK;
@@ -67,7 +73,7 @@ fn float sample_height(float fx, float fy)
 	float h01 = height_map[y1][x0];
 	float h11 = height_map[y1][x1];
 
-	return (h00 + (h10 - h00) * tx) * (1.0f - ty) + (h01 + (h11 - h01) * tx) * ty;
+	return (h00 * (1.0f - tx) + h10 * tx) * (1.0f - ty) + (h01 * (1.0f - tx) + h11 * tx) * ty;
 }
 
 fn void init_map()
@@ -75,27 +81,29 @@ fn void init_map()
 	for (int i = 0; i < NUM_STARS; i++)
 	{
 		stars[i] = {
-			.x = ((float)rnd() - 0.5f) * 1200.0f,
-			.y = (float)rnd() * 170.0f,
-			.z = (float)rnd() * 0.8f + 0.2f
+			.x = (float)rnd() * (float)SCREEN_WIDTH * 2.0f - (float)SCREEN_WIDTH,
+			.y = (float)rnd() * 200.0f,
+			.z = 0.4f + (float)rnd() * 0.6f
 		};
 	}
-
-	float tau = math::TWO_PI / MAP_SIZE;
 
 	for (int y = 0; y < MAP_SIZE; y++)
 	{
 		for (int x = 0; x < MAP_SIZE; x++)
 		{
-			float fx = x * tau;
-			float fy = y * tau;
+			float nx = (float)x / (float)MAP_SIZE;
+			float ny = (float)y / (float)MAP_SIZE;
 
-			float h = math::sin(
-				fx
-			) * 34.0f + math::cos(
-				fy
-			) * 34.0f + math::sin(fx + fy) * 26.0f + math::sin(fx * 3.0f + fy * 2.0f) * 12.0f + 100.0f;
-			h = math::clamp(h * 0.82f, 0.0f, 255.0f);
+			float h = 0.0f;
+			h += (math::sin(nx * (float)math::TWO_PI * 1.0f) + math::cos(ny * (float)math::TWO_PI * 1.0f)) * 42.0f;
+			h += (math::sin(
+				nx * (float)math::TWO_PI * 3.0f + 1.2f
+			) + math::sin(ny * (float)math::TWO_PI * 2.0f)) * 24.0f;
+			h += (math::sin(nx * (float)math::TWO_PI * 7.0f) * math::cos(ny * (float)math::TWO_PI * 7.0f)) * 14.0f;
+			h += (float)rnd() * 4.0f;
+			h += 110.0f;
+
+			h = math::clamp(h, 0.0f, 255.0f);
 			height_map[y][x] = (char)h;
 
 			float nh = h / 255.0f;
@@ -112,14 +120,74 @@ fn void init_map()
 	map_initialized = true;
 }
 
-fn Rgba* update_canvas(int width, int height) @export("update_canvas")
+fn void audio_callback(void* buffer, uint frames)
 {
-	static Rgba[] pixels;
-	if (pixels.len < width * height)
+	float* samples = (float*)buffer;
+
+	for (uint i = 0; i < frames; i++)
 	{
-		pixels = mem::new_array(Rgba, width * height);
+		if (sample_count % STEP_SAMPLES == 0)
+		{
+			int sub = step % 16;
+			if (sub % 4 == 0)
+			{
+				amp.x = 0.98f;
+				phase.x = 0.0f;
+			}
+			if (sub == 4 || sub == 12)
+			{
+				amp.y = 0.5f;
+				phase.y = 0.0f;
+			}
+			else if (sub % 2 == 1)
+			{
+				amp.y = 0.15f;
+				phase.y = 0.0f;
+			}
+			amp.z = 0.3f;
+			if (sub % 2 == 0)
+			{
+				amp.w = 0.20f;
+				phase.w = 0.0f;
+			}
+			step++;
+		}
+		sample_count++;
+		kick_pulse = amp.x;
+		amp *= { 0.9991f, 0.9980f, 0.9995f, 0.9990f };
+
+		int chord = (step / 16) % 4;
+		float[<4>] inc = {
+			180.0f * (amp.x * amp.x) + 40.0f,
+			350.0f,
+			BASS_ROOTS[(step / 16) % 8],
+			CHORD_ARPS[chord][(step * 3) % 8]
+		};
+		phase += inc / (float)SAMPLE_RATE;
+		phase -= math::floor(phase);
+
+		bass_phase_2 += (BASS_ROOTS[(step / 16) % 8] * 1.006f) / (float)SAMPLE_RATE;
+		if (bass_phase_2 > 1.0f) bass_phase_2 -= 1.0f;
+
+		lead_delay_buffer = lead_delay_buffer * 0.65f + (phase.w < 0.5f ? 0.75f
+			: -0.75f) * (1.0f - amp.x * 0.65f) * 0.35f;
+
+		float[<4>] voice_out = {
+			math::sin(phase.x * (float)math::TWO_PI),
+			((float)rnd() * 2.0f - 1.0f) * 0.85f + math::sin(phase.y * (float)math::TWO_PI) * 0.15f,
+			((phase.z * 2.0f - 1.0f) + (bass_phase_2 * 2.0f - 1.0f)) * 0.5f,
+			(phase.w < 0.5f ? 0.75f : -0.75f) * (1.0f - amp.x * 0.65f) + lead_delay_buffer * 0.4f
+		};
+
+		samples[i] = (voice_out * amp).sum() * 0.4f;
 	}
-	if (!map_initialized) init_map();
+}
+
+fn void update_draw_frame()
+{
+	Rgba* pixels = (Rgba*)canvas_image.data;
+	int width    = SCREEN_WIDTH;
+	int height   = SCREEN_HEIGHT;
 
 	frame_count++;
 	cam_roll = math::sin(frame_count * 0.012f) * 0.22f;
@@ -166,7 +234,7 @@ fn Rgba* update_canvas(int width, int height) @export("update_canvas")
 	}
 
 	// Stars
-	float fw = width;
+	float fw = (float)width;
 	for (int i = 0; i < NUM_STARS; i++)
 	{
 		float sx = stars[i].x - cam_angle * 300.0f;
@@ -175,7 +243,7 @@ fn Rgba* update_canvas(int width, int height) @export("update_canvas")
 
 		int px = (int)(sx * 0.5f + fw * 0.5f);
 		int py = (int)(stars[i].y + cam_pitch * 0.4f);
-		if (px >= 0 && px < width && py >= 0 && py < current_horizon - 10)
+		if (px >= 0 && px < width && py >= 0 && py < (int)current_horizon - 10)
 		{
 			char b = (char)(180.0f * stars[i].z + math::sin(frame_count * 0.1f + i) * 60.0f);
 			pixels[py * width + px] = { b, b, (char)(b * 0.9f), 255 };
@@ -191,7 +259,7 @@ fn Rgba* update_canvas(int width, int height) @export("update_canvas")
 	for (int dy = -max_r; dy <= max_r; dy++)
 	{
 		int py = moon_cy + dy;
-		if (py < 0 || py >= current_horizon) continue;
+		if (py < 0 || py >= (int)current_horizon) continue;
 
 		for (int dx = -max_r; dx <= max_r; dx++)
 		{
@@ -219,8 +287,8 @@ fn Rgba* update_canvas(int width, int height) @export("update_canvas")
 				continue;
 			}
 
-			float nx    = dx / 44.0f;
-			float ny    = dy / 44.0f;
+			float nx    = (float)dx / 44.0f;
+			float ny    = (float)dy / 44.0f;
 			float nz    = math::sqrt(math::clamp(1.0f - nx * nx - ny * ny, 0.0f, 1.0f));
 			float light = math::clamp(nz * 0.75f - nx * 0.3f - ny * 0.35f + 0.25f, 0.25f, 1.0f);
 
@@ -237,7 +305,6 @@ fn Rgba* update_canvas(int width, int height) @export("update_canvas")
 	}
 
 	// VoxelSpace Terrain Raycaster
-	float dz = 0.35f;
 	for (int x = 0; x < width; x++)
 	{
 		float h_line    = current_horizon + (x - width * 0.5f) * math::tan(cam_roll);
@@ -246,7 +313,7 @@ fn Rgba* update_canvas(int width, int height) @export("update_canvas")
 		float ray_sin   = math::sin(ray_angle);
 
 		int max_y = height;
-		dz = 0.35f;
+		float dz  = 0.35f;
 
 		for (float z = 1.0f; z < 400.0f; z += dz, dz += 0.005f)
 		{
@@ -300,107 +367,47 @@ fn Rgba* update_canvas(int width, int height) @export("update_canvas")
 		}
 	}
 
-	// Oscilloscope
-	for (int sx = 0; sx < 120; sx++)
-	{
-		int sy = 35 + (int)(audio_buffer[(sx * BUFFER_SIZE) / 120] * 22.0f);
-		if (sy >= 10 && sy < 80 && (width - 140 + sx) < width)
-		{
-			pixels[sy * width + (width - 140 + sx)] = { 0, 255, 230, 255 };
-		}
-	}
+	canvas_texture.update(canvas_image.data);
 
-	// Vignette Border
-	for (int y = 0; y < height; y += 4)
-	{
-		float dy = (y - height * 0.5f) / (height * 0.5f);
-		for (int x = 0; x < width; x += 4)
-		{
-			float dist_sq = ((x - width * 0.5f) / (width * 0.5f)) * ((x - width * 0.5f) / (width * 0.5f)) + dy * dy;
-			if (dist_sq > 0.65f)
-			{
-				float vig = math::clamp(1.0f - (dist_sq - 0.65f) * 0.9f, 0.3f, 1.0f);
-				for (int vy = 0; vy < 4 && (y + vy) < height; vy++)
-				{
-					for (int vx = 0; vx < 4 && (x + vx) < width; vx++)
-					{
-						int idx = (y + vy) * width + (x + vx);
-						pixels[idx].x = (char)(pixels[idx].x * vig);
-						pixels[idx].y = (char)(pixels[idx].y * vig);
-						pixels[idx].z = (char)(pixels[idx].z * vig);
-					}
-				}
-			}
-		}
-	}
-
-	return pixels;
+	rl::begin_drawing();
+	rl::clear_background(rl::BLACK);
+	rl::draw_texture(canvas_texture, 0, 0, rl::WHITE);
+	rl::draw_text("VoxelSpace Flight Simulator + Synthwave (Raylib)", 20, 20, 20, rl::RAYWHITE);
+	rl::draw_fps(SCREEN_WIDTH - 80, 20);
+	rl::end_drawing();
 }
 
-fn float* update_audio(int samples) @export("update_audio")
+fn int main(String[] args) @winmain
 {
-	for (int i = 0; i < samples; i++)
-	{
-		if (sample_count % STEP_SAMPLES == 0)
+	rl::init_window(SCREEN_WIDTH, SCREEN_HEIGHT, "VoxelSpace Flight Simulator - C3 & Raylib");
+	rl::init_audio_device();
+
+	init_map();
+
+	canvas_image = rl::gen_image_color(SCREEN_WIDTH, SCREEN_HEIGHT, rl::BLACK);
+	canvas_texture = rl::load_texture_from_image(canvas_image);
+
+	audio_stream = rl::load_audio_stream(SAMPLE_RATE, 32, 1);
+	audio_stream.set_callback(&audio_callback);
+	rl::play_audio_stream(audio_stream);
+
+	$if env::WASM:
+		emscripten_set_main_loop(&update_draw_frame, 60, 1);
+	$else
+		rl::set_target_fps(60);
+		while (!rl::window_should_close())
 		{
-			int sub = step % 16;
-			if (sub % 4 == 0)
-			{
-				amp.x = 0.98f;
-				phase.x = 0.0f;
-			}
-			if (sub == 4 || sub == 12)
-			{
-				amp.y = 0.5f;
-				phase.y = 0.0f;
-			}
-			else if (sub % 2 == 1)
-			{
-				amp.y = 0.15f;
-				phase.y = 0.0f;
-			}
-			amp.z = 0.3f;
-			if (sub % 2 == 0)
-			{
-				amp.w = 0.20f;
-				phase.w = 0.0f;
-			}
-			step++;
+			update_draw_frame();
 		}
-		sample_count++;
-		kick_pulse = amp.x;
-		amp *= { 0.9991f, 0.9980f, 0.9995f, 0.9990f };
+		rl::unload_audio_stream(audio_stream);
+		rl::close_audio_device();
+		rl::unload_texture(canvas_texture);
+		rl::unload_image(canvas_image);
+		rl::close_window();
+	$endif
 
-		int chord = (step / 16) % 4;
-		float[<4>] inc = {
-			180.0f * (amp.x * amp.x) + 40.0f,
-			350.0f,
-			BASS_ROOTS[(step / 16) % 8],
-			CHORD_ARPS[chord][(step * 3) % 8]
-		};
-		phase += inc / SAMPLE_RATE;
-		phase -= math::floor(phase);
-
-		bass_phase_2 += (BASS_ROOTS[(step / 16) % 8] * 1.006f) / SAMPLE_RATE;
-		if (bass_phase_2 > 1.0f) bass_phase_2 -= 1.0f;
-
-		lead_delay_buffer = lead_delay_buffer * 0.65f + (phase.w < 0.5f ? 0.75f
-			: -0.75f) * (1.0f - amp.x * 0.65f) * 0.35f;
-
-		float[<4>] voice_out = {
-			math::sin(phase.x * (float)math::TWO_PI),
-			((float)rnd() * 2.0f - 1.0f) * 0.85f + math::sin(phase.y * (float)math::TWO_PI) * 0.15f,
-			((phase.z * 2.0f - 1.0f) + (bass_phase_2 * 2.0f - 1.0f)) * 0.5f,
-			(phase.w < 0.5f ? 0.75f : -0.75f) * (1.0f - amp.x * 0.65f) + lead_delay_buffer * 0.4f
-		};
-
-		audio_buffer[i] = (voice_out * amp).sum();
-	}
-	return &audio_buffer;
-}
-
-fn int main()
-{
-	io::printn("Engine Active.");
 	return 0;
 }
+
+alias Em_callback_func = fn void();
+extern fn void emscripten_set_main_loop(Em_callback_func func, int fps, int simulate_infinite_loop);

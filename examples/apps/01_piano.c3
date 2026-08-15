@@ -1,5 +1,6 @@
 module main;
 import std;
+import raylib6;
 
 alias IVec2 = int[<2>];
 alias Rgba = char[<4>];
@@ -14,30 +15,29 @@ G#3:76.80:0.08 C4:76.88:0.08 D#4:76.96:0.08 G#4:77.04:0.08 C5:77.12:0.08 D#5:77.
 A#3:78.10:0.08 D4:78.18:0.08 F4:78.26:0.08 A#4:78.34:0.08 D5:78.42:0.08 F5:78.50:0.08 A#5:78.58:0.30 A#2:78.58:0.30 A#5:78.90:0.12 A#5:79.05:0.12 A#5:79.20:0.12 C6:79.35:0.60 C2:79.35:0.60 C3:79.35:0.60
 `;
 
-const int KEY_ENTER  = 257;
-const int KEY_RETURN = 13;
-const int KEY_SPACE  = 32;
-
-const Rgba COLOR_BG            = { 10, 14, 26, 255 };
-const Rgba COLOR_GUIDE_LINE    = { 22, 32, 52, 255 };
-const Rgba COLOR_WHITE_KEY     = { 240, 243, 248, 255 };
-const Rgba COLOR_WHITE_BORDER  = { 180, 190, 205, 255 };
-const Rgba COLOR_WHITE_TEXT    = { 40, 50, 70, 255 };
-const Rgba COLOR_BLACK_KEY     = { 25, 30, 42, 255 };
-const Rgba COLOR_BLACK_BORDER  = { 60, 70, 90, 255 };
-const Rgba COLOR_BLACK_TEXT    = { 200, 210, 230, 255 };
-const Rgba COLOR_REC_BADGE     = { 239, 68, 68, 255 };
-const Rgba COLOR_PLAY_BADGE    = { 34, 197, 94, 255 };
-const Rgba COLOR_INST_BADGE    = { 168, 85, 247, 255 };
-const Rgba COLOR_OCT_UP        = { 56, 189, 248, 255 };
-const Rgba COLOR_OCT_DOWN      = { 250, 204, 21, 255 };
-const Rgba COLOR_VOL_FILL      = { 56, 189, 248, 255 };
-const Rgba COLOR_VOL_HIGH      = { 250, 204, 21, 255 };
-const Rgba COLOR_HUD_BG        = { 15, 23, 42, 255 };
-const Rgba COLOR_HUD_BG_TRANSP = { 15, 23, 42, 240 };
-const Rgba COLOR_BAR_BG        = { 30, 41, 59, 255 };
-const Rgba COLOR_LEGEND_TEXT   = { 100, 130, 170, 255 };
-const Rgba COLOR_WHITE         = { 255, 255, 255, 255 };
+constdef Color : inline Rgba
+{
+	BG            = { 10, 14, 26, 255 },
+	GUIDE_LINE    = { 22, 32, 52, 255 },
+	WHITE_KEY     = { 240, 243, 248, 255 },
+	WHITE_BORDER  = { 180, 190, 205, 255 },
+	WHITE_TEXT    = { 40, 50, 70, 255 },
+	BLACK_KEY     = { 25, 30, 42, 255 },
+	BLACK_BORDER  = { 60, 70, 90, 255 },
+	BLACK_TEXT    = { 200, 210, 230, 255 },
+	REC_BADGE     = { 239, 68, 68, 255 },
+	PLAY_BADGE    = { 34, 197, 94, 255 },
+	INST_BADGE    = { 168, 85, 247, 255 },
+	OCT_UP        = { 56, 189, 248, 255 },
+	OCT_DOWN      = { 250, 204, 21, 255 },
+	VOL_FILL      = { 56, 189, 248, 255 },
+	VOL_HIGH      = { 250, 204, 21, 255 },
+	HUD_BG        = { 15, 23, 42, 255 },
+	HUD_BG_TRANSP = { 15, 23, 42, 240 },
+	BAR_BG        = { 30, 41, 59, 255 },
+	LEGEND_TEXT   = { 100, 130, 170, 255 },
+	WHITE         = { 255, 255, 255, 255 },
+}
 
 fn float pitch_to_freq(Pitch pitch)
 {
@@ -560,7 +560,7 @@ fn void MidiRouter.dispatch_note_on_with_key_idx(&self, Pitch pitch, float veloc
 	}
 	else
 	{
-		visualizer.spawn_streak(pitch, visualizer.key_geometries[VISUAL_KEY_COUNT / 2].center_x, COLOR_OCT_UP);
+		visualizer.spawn_streak(pitch, visualizer.key_geometries[VISUAL_KEY_COUNT / 2].center_x, Color.OCT_UP);
 	}
 }
 
@@ -638,189 +638,128 @@ fn int MidiRouter.key_code_to_key_idx(&self, int k)
 	}
 }
 
-fn void MidiRouter.process_events(&self, Event[] events)
+fn void MidiRouter.poll_raylib_input(&self)
 {
-	foreach (event : events)
+	RLVector2 mouse_v = rl::get_mouse_position();
+	Vec2 mouse_pos    = { mouse_v.x, mouse_v.y };
+
+	if (rl::is_mouse_button_pressed(RLMouseButton.LEFT))
 	{
-		switch (event.kind)
+		self.mouse_is_down = true;
+		int touched_idx = visualizer.pitch_idx_at_pos(mouse_pos);
+		if (touched_idx != -1)
 		{
-			case MOUSE_DOWN:
-				self.mouse_is_down = true;
-				int touched_idx = visualizer.pitch_idx_at_pos(event.mouse_pos);
-				if (touched_idx != -1)
+			self.mouse_active_idx = touched_idx;
+			int pitch_num = (int)VISUAL_BASE_PITCH + touched_idx + self.get_octave_shift();
+			if (pitch_num >= 0 && pitch_num <= 127)
+			{
+				self.mouse_active_pitch = (Pitch)pitch_num;
+				self.dispatch_note_on_with_key_idx(self.mouse_active_pitch, 1.0f, touched_idx, true);
+			}
+		}
+	}
+	else if (self.mouse_is_down && rl::is_mouse_button_down(RLMouseButton.LEFT))
+	{
+		int hovered_idx = visualizer.pitch_idx_at_pos(mouse_pos);
+		if (hovered_idx != self.mouse_active_idx)
+		{
+			if (self.mouse_active_pitch != 0)
+			{
+				self.dispatch_note_off(self.mouse_active_pitch, true);
+				self.mouse_active_pitch = 0;
+			}
+			self.mouse_active_idx = hovered_idx;
+			if (self.mouse_active_idx != -1)
+			{
+				int new_p = (int)VISUAL_BASE_PITCH + self.mouse_active_idx + self.get_octave_shift();
+				if (new_p >= 0 && new_p <= 127)
 				{
-					self.mouse_active_idx = touched_idx;
-					int pitch_num = (int)VISUAL_BASE_PITCH + touched_idx + self.get_octave_shift();
-					if (pitch_num >= 0 && pitch_num <= 127)
-					{
-						self.mouse_active_pitch = (Pitch)pitch_num;
-						self.dispatch_note_on_with_key_idx(self.mouse_active_pitch, 1.0f, touched_idx, true);
-					}
+					self.mouse_active_pitch = (Pitch)new_p;
+					self.dispatch_note_on_with_key_idx(self.mouse_active_pitch, 1.0f, self.mouse_active_idx, true);
 				}
+			}
+		}
+	}
+	else if (rl::is_mouse_button_released(RLMouseButton.LEFT))
+	{
+		self.mouse_is_down = false;
+		if (self.mouse_active_pitch != 0)
+		{
+			self.dispatch_note_off(self.mouse_active_pitch, true);
+			self.mouse_active_pitch = 0;
+		}
+		self.mouse_active_idx = -1;
+	}
 
-			case MOUSE_MOVE:
-				if (self.mouse_is_down)
+	float wheel = rl::get_mouse_wheel_move();
+	if (wheel != 0.0f)
+	{
+		synth_engine.master_volume = math::clamp(synth_engine.master_volume + wheel * 0.08f, 0.0f, 2.0f);
+		synth_engine.volume_hud_timer = 2.0f;
+	}
+
+	int prev_shift = self.get_octave_shift();
+	bool oct_down  = rl::is_key_down(RLKeyboardKey.Z);
+	bool oct_up    = rl::is_key_down(RLKeyboardKey.X);
+	if (oct_down != self.is_oct_down_held || oct_up != self.is_oct_up_held)
+	{
+		self.is_oct_down_held = oct_down;
+		self.is_oct_up_held = oct_up;
+		self.shift_active_notes(prev_shift, self.get_octave_shift());
+	}
+
+	if (rl::is_key_pressed(RLKeyboardKey.ENTER)) sequencer.toggle_recording();
+	if (rl::is_key_pressed(RLKeyboardKey.SPACE)) sequencer.toggle_playback();
+
+	// Instrument Selection
+	for (int i = 0; i < 9; i++)
+	{
+		if (rl::is_key_pressed((RLKeyboardKey)((int)RLKeyboardKey.ONE + i)))
+		{
+			synth_engine.current_instrument = i;
+			synth_engine.inst_hud_timer = 2.5f;
+		}
+	}
+
+	// Piano Keyboard Keys
+	RLKeyboardKey[17] piano_keys = {
+		RLKeyboardKey.A, RLKeyboardKey.W, RLKeyboardKey.S, RLKeyboardKey.E,
+		RLKeyboardKey.D, RLKeyboardKey.F, RLKeyboardKey.T, RLKeyboardKey.G,
+		RLKeyboardKey.Y, RLKeyboardKey.H, RLKeyboardKey.U, RLKeyboardKey.J,
+		RLKeyboardKey.K, RLKeyboardKey.O, RLKeyboardKey.L, RLKeyboardKey.P,
+		RLKeyboardKey.SEMICOLON
+	};
+
+	for (int i = 0; i < 17; i++)
+	{
+		int k = (int)piano_keys[i];
+		if (rl::is_key_pressed(piano_keys[i]))
+		{
+			int pitch_num = (int)VISUAL_BASE_PITCH + i + self.get_octave_shift();
+			if (pitch_num >= 0 && pitch_num <= 127)
+			{
+				Pitch p = (Pitch)pitch_num;
+				if (k < 256)
 				{
-					int hovered_idx = visualizer.pitch_idx_at_pos(event.mouse_pos);
-					if (hovered_idx != self.mouse_active_idx)
-					{
-						if (self.mouse_active_pitch != 0)
-						{
-							self.dispatch_note_off(self.mouse_active_pitch, true);
-							self.mouse_active_pitch = 0;
-						}
-						self.mouse_active_idx = hovered_idx;
-						if (self.mouse_active_idx != -1)
-						{
-							int new_p = (int)VISUAL_BASE_PITCH + self.mouse_active_idx + self.get_octave_shift();
-							if (new_p >= 0 && new_p <= 127)
-							{
-								self.mouse_active_pitch = (Pitch)new_p;
-								self.dispatch_note_on_with_key_idx(
-									self.mouse_active_pitch,
-									1.0f,
-									self.mouse_active_idx,
-									true
-								);
-							}
-						}
-					}
+					self.key_to_active_pitch[k] = p;
+					self.key_to_key_idx[k] = i;
 				}
-
-			case MOUSE_UP:
-				self.mouse_is_down = false;
-				if (self.mouse_active_pitch != 0)
-				{
-					self.dispatch_note_off(self.mouse_active_pitch, true);
-					self.mouse_active_pitch = 0;
-				}
-				self.mouse_active_idx = -1;
-
-			case MOUSE_WHEEL:
-				if (event.wheel != 0.0f)
-				{
-					synth_engine.master_volume = math::clamp(
-						synth_engine.master_volume + event.wheel * 0.08f,
-						0.0f,
-						2.0f
-					);
-					synth_engine.volume_hud_timer = 2.0f;
-				}
-
-			case KEY_DOWN:
-				int k = event.key;
-				if (k < 256) k = (int)((char)k).to_lower();
-				int prev_shift = self.get_octave_shift();
-
-				switch (k)
-				{
-					case 'z':
-						self.is_oct_down_held = true;
-						self.shift_active_notes(prev_shift, self.get_octave_shift());
-					case 'x':
-						self.is_oct_up_held = true;
-						self.shift_active_notes(prev_shift, self.get_octave_shift());
-					case KEY_ENTER:
-					case KEY_RETURN:
-						sequencer.toggle_recording();
-					case KEY_SPACE:
-						sequencer.toggle_playback();
-					default:
-						switch (true)
-						{
-							case k >= '1' && k <= '9':
-								synth_engine.current_instrument = k - '1';
-								synth_engine.inst_hud_timer = 2.5f;
-							default:
-								int idx = self.key_code_to_key_idx(k);
-								if (idx != -1)
-								{
-									int pitch_num = (int)VISUAL_BASE_PITCH + idx + self.get_octave_shift();
-									if (pitch_num >= 0 && pitch_num <= 127)
-									{
-										Pitch p = (Pitch)pitch_num;
-										if (k < 256)
-										{
-										self.key_to_active_pitch[k] = p;
-										self.key_to_key_idx[k] = idx;
-										}
-										self.dispatch_note_on_with_key_idx(p, 1.0f, idx, true);
-									}
-								}
-						}
-				}
-
-			case KEY_UP:
-				int k = event.key;
-				if (k < 256) k = (int)((char)k).to_lower();
-				int prev_shift = self.get_octave_shift();
-
-				switch (k)
-				{
-					case 'z':
-						self.is_oct_down_held = false;
-						self.shift_active_notes(prev_shift, self.get_octave_shift());
-					case 'x':
-						self.is_oct_up_held = false;
-						self.shift_active_notes(prev_shift, self.get_octave_shift());
-					case KEY_ENTER:
-					case KEY_RETURN:
-					case KEY_SPACE:
-						break;
-					default:
-						switch (true)
-						{
-							case k >= '1' && k <= '9':
-								break;
-							default:
-								Pitch active_p = k < 256 ? self.key_to_active_pitch[k] : 0;
-								if (active_p != 0)
-								{
-									self.dispatch_note_off(active_p, true);
-									if (k < 256) self.key_to_active_pitch[k] = 0;
-								}
-								else
-								{
-									int idx = self.key_code_to_key_idx(k);
-									if (idx != -1)
-									{
-										int pitch_num = (int)VISUAL_BASE_PITCH + idx + self.get_octave_shift();
-										if (pitch_num >= 0 && pitch_num <= 127)
-										{
-											self.dispatch_note_off((Pitch)pitch_num, true);
-										}
-									}
-								}
-						}
-				}
-
-			default: break;
+				self.dispatch_note_on_with_key_idx(p, 1.0f, i, true);
+			}
+		}
+		if (rl::is_key_released(piano_keys[i]))
+		{
+			Pitch p = k < 256 ? self.key_to_active_pitch[k] : 0;
+			if (p != 0)
+			{
+				self.dispatch_note_off(p, true);
+				if (k < 256) self.key_to_active_pitch[k] = 0;
+			}
 		}
 	}
 }
 
 // VISUALIZER (Waterfall & Piano UI Renderer)
-enum EventKind : char
-{
-	NONE,
-	MOUSE_MOVE,
-	MOUSE_DOWN,
-	MOUSE_UP,
-	MOUSE_WHEEL,
-	KEY_DOWN,
-	KEY_UP,
-	CHAR_INPUT
-}
-
-struct Event
-{
-	EventKind kind;
-	Vec2 mouse_pos;
-	float wheel;
-	int mouse_button;
-	int key;
-	Char32 character;
-}
 
 struct KeyGeometry
 {
@@ -1157,7 +1096,7 @@ fn void Visualizer.spawn_sparkles(&self, Vec2 pos, Rgba col)
 
 fn void Visualizer.render(&self, Canvas* canvas, float dt)
 {
-	canvas.clear(COLOR_BG);
+	canvas.clear(Color.BG);
 
 	// UI Offsets
 	int hud_top_y       = (int)PIANO_HEIGHT + 14;
@@ -1173,7 +1112,7 @@ fn void Visualizer.render(&self, Canvas* canvas, float dt)
 			int gx = (int)self.key_geometries[i].key_x;
 			for (int y = (int)PIANO_HEIGHT; y < canvas.height; y += 8)
 			{
-				canvas.draw_pixel({ gx, y }, COLOR_GUIDE_LINE);
+				canvas.draw_pixel({ gx, y }, Color.GUIDE_LINE);
 			}
 		}
 	}
@@ -1208,7 +1147,7 @@ fn void Visualizer.render(&self, Canvas* canvas, float dt)
 			float circle_r = pitch_is_black(streak.pitch) ? 11.0f : 15.0f;
 			canvas.draw_circle({ streak.x, streak.head_y }, circle_r + 4.0f, glow_col);
 			canvas.draw_circle({ streak.x, streak.head_y }, circle_r, main_col);
-			canvas.draw_circle({ streak.x, streak.head_y }, circle_r * 0.45f, COLOR_WHITE);
+			canvas.draw_circle({ streak.x, streak.head_y }, circle_r * 0.45f, Color.WHITE);
 
 			if (streak.is_holding) self.spawn_sparkles({ streak.x, streak.head_y }, main_col);
 		}
@@ -1244,13 +1183,13 @@ fn void Visualizer.render(&self, Canvas* canvas, float dt)
 		int kh         = (int)PIANO_HEIGHT;
 		bool is_active = synth_engine.is_key_idx_active(i, oct_shift);
 
-		Rgba key_col = is_active ? VISUAL_PITCH_CONFIGS[i].color : COLOR_WHITE_KEY;
+		Rgba key_col = is_active ? VISUAL_PITCH_CONFIGS[i].color : Color.WHITE_KEY;
 		canvas.draw_rect({ kx, 0 }, { kw, kh }, key_col);
 
-		Rgba border_col = is_active ? COLOR_WHITE : COLOR_WHITE_BORDER;
+		Rgba border_col = is_active ? Color.WHITE : Color.WHITE_BORDER;
 		canvas.draw_rect({ kx, kh - 8 }, { kw, 8 }, border_col);
 
-		Rgba text_col = is_active ? COLOR_WHITE : COLOR_WHITE_TEXT;
+		Rgba text_col = is_active ? Color.WHITE : Color.WHITE_TEXT;
 		canvas.draw_text({ kx + kw / 2 - 4, kh - 24 }, VISUAL_PITCH_CONFIGS[i].key_label, 2, text_col);
 	}
 
@@ -1265,32 +1204,32 @@ fn void Visualizer.render(&self, Canvas* canvas, float dt)
 		int kh         = (int)(PIANO_HEIGHT * 0.62f);
 		bool is_active = synth_engine.is_key_idx_active(i, oct_shift);
 
-		Rgba key_col = is_active ? VISUAL_PITCH_CONFIGS[i].color : COLOR_BLACK_KEY;
+		Rgba key_col = is_active ? VISUAL_PITCH_CONFIGS[i].color : Color.BLACK_KEY;
 		canvas.draw_rect({ kx, 0 }, { kw, kh }, key_col);
 
-		Rgba border_col = is_active ? COLOR_WHITE : COLOR_BLACK_BORDER;
+		Rgba border_col = is_active ? Color.WHITE : Color.BLACK_BORDER;
 		canvas.draw_rect({ kx, kh - 6 }, { kw, 6 }, border_col);
 
-		Rgba text_col = is_active ? COLOR_WHITE : COLOR_BLACK_TEXT;
+		Rgba text_col = is_active ? Color.WHITE : Color.BLACK_TEXT;
 		canvas.draw_text({ kx + kw / 2 - 3, kh - 32 }, VISUAL_PITCH_CONFIGS[i].key_label, 2, text_col);
 	}
 
 	// Render Record / Play Badge
 	if (sequencer.is_recording)
 	{
-		canvas.draw_rect({ hud_margin_x, hud_top_y }, { 110, 24 }, COLOR_REC_BADGE);
-		canvas.draw_rect({ hud_margin_x + 2, hud_top_y + 2 }, { 106, 20 }, COLOR_HUD_BG);
-		canvas.draw_text({ hud_margin_x + 8, hud_top_y + 8 }, "REC", 1, COLOR_REC_BADGE);
-		canvas.draw_number({ hud_margin_x + 44, hud_top_y + 8 }, (int)sequencer.record_timer, 1, COLOR_WHITE);
-		canvas.draw_text({ hud_margin_x + 64, hud_top_y + 8 }, "S", 1, COLOR_WHITE);
+		canvas.draw_rect({ hud_margin_x, hud_top_y }, { 110, 24 }, Color.REC_BADGE);
+		canvas.draw_rect({ hud_margin_x + 2, hud_top_y + 2 }, { 106, 20 }, Color.HUD_BG);
+		canvas.draw_text({ hud_margin_x + 8, hud_top_y + 8 }, "REC", 1, Color.REC_BADGE);
+		canvas.draw_number({ hud_margin_x + 44, hud_top_y + 8 }, (int)sequencer.record_timer, 1, Color.WHITE);
+		canvas.draw_text({ hud_margin_x + 64, hud_top_y + 8 }, "S", 1, Color.WHITE);
 	}
 	else if (sequencer.is_playing)
 	{
-		canvas.draw_rect({ hud_margin_x, hud_top_y }, { 110, 24 }, COLOR_PLAY_BADGE);
-		canvas.draw_rect({ hud_margin_x + 2, hud_top_y + 2 }, { 106, 20 }, COLOR_HUD_BG);
-		canvas.draw_text({ hud_margin_x + 8, hud_top_y + 8 }, "PLAY", 1, COLOR_PLAY_BADGE);
-		canvas.draw_number({ hud_margin_x + 48, hud_top_y + 8 }, (int)sequencer.play_timer, 1, COLOR_PLAY_BADGE);
-		canvas.draw_text({ hud_margin_x + 68, hud_top_y + 8 }, "S", 1, COLOR_PLAY_BADGE);
+		canvas.draw_rect({ hud_margin_x, hud_top_y }, { 110, 24 }, Color.PLAY_BADGE);
+		canvas.draw_rect({ hud_margin_x + 2, hud_top_y + 2 }, { 106, 20 }, Color.HUD_BG);
+		canvas.draw_text({ hud_margin_x + 8, hud_top_y + 8 }, "PLAY", 1, Color.PLAY_BADGE);
+		canvas.draw_number({ hud_margin_x + 48, hud_top_y + 8 }, (int)sequencer.play_timer, 1, Color.PLAY_BADGE);
+		canvas.draw_text({ hud_margin_x + 68, hud_top_y + 8 }, "S", 1, Color.PLAY_BADGE);
 	}
 
 	// Instrument Popup HUD
@@ -1301,18 +1240,18 @@ fn void Visualizer.render(&self, Canvas* canvas, float dt)
 		int box_h        = 28;
 		int box_y        = hud_top_y + 30;
 
-		canvas.draw_rect({ hud_margin_x - 1, box_y - 1 }, { box_w + 2, box_h + 2 }, COLOR_INST_BADGE);
-		canvas.draw_rect({ hud_margin_x, box_y }, { box_w, box_h }, COLOR_HUD_BG_TRANSP);
-		canvas.draw_text({ hud_margin_x + 10, box_y + 9 }, inst_name, 2, COLOR_INST_BADGE);
+		canvas.draw_rect({ hud_margin_x - 1, box_y - 1 }, { box_w + 2, box_h + 2 }, Color.INST_BADGE);
+		canvas.draw_rect({ hud_margin_x, box_y }, { box_w, box_h }, Color.HUD_BG_TRANSP);
+		canvas.draw_text({ hud_margin_x + 10, box_y + 9 }, inst_name, 2, Color.INST_BADGE);
 	}
 
 	// Octave Badge
 	if (oct_shift != 0)
 	{
-		Rgba oct_col   = midi_router.is_oct_up_held ? COLOR_OCT_UP : COLOR_OCT_DOWN;
+		Rgba oct_col   = midi_router.is_oct_up_held ? Color.OCT_UP : Color.OCT_DOWN;
 		String oct_txt = midi_router.is_oct_up_held ? "OCT +1" : "OCT -1";
 		canvas.draw_rect({ hud_margin_x + 120, hud_top_y }, { 70, 24 }, oct_col);
-		canvas.draw_rect({ hud_margin_x + 122, hud_top_y + 2 }, { 66, 20 }, COLOR_HUD_BG);
+		canvas.draw_rect({ hud_margin_x + 122, hud_top_y + 2 }, { 66, 20 }, Color.HUD_BG);
 		canvas.draw_text({ hud_margin_x + 128, hud_top_y + 8 }, oct_txt, 1, oct_col);
 	}
 
@@ -1323,23 +1262,23 @@ fn void Visualizer.render(&self, Canvas* canvas, float dt)
 		int box_h = 36;
 		int box_x = canvas.width - box_w - hud_margin_x;
 
-		canvas.draw_rect({ box_x - 1, hud_top_y - 1 }, { box_w + 2, box_h + 2 }, COLOR_VOL_FILL);
-		canvas.draw_rect({ box_x, hud_top_y }, { box_w, box_h }, COLOR_HUD_BG_TRANSP);
+		canvas.draw_rect({ box_x - 1, hud_top_y - 1 }, { box_w + 2, box_h + 2 }, Color.VOL_FILL);
+		canvas.draw_rect({ box_x, hud_top_y }, { box_w, box_h }, Color.HUD_BG_TRANSP);
 
 		int vol_pct = (int)(synth_engine.master_volume * 100.0f);
-		canvas.draw_text({ box_x + 10, hud_top_y + 8 }, "VOL:", 1, COLOR_WHITE);
-		canvas.draw_number({ box_x + 38, hud_top_y + 8 }, vol_pct, 1, COLOR_VOL_FILL);
+		canvas.draw_text({ box_x + 10, hud_top_y + 8 }, "VOL:", 1, Color.WHITE);
+		canvas.draw_number({ box_x + 38, hud_top_y + 8 }, vol_pct, 1, Color.VOL_FILL);
 		int num_offset = vol_pct >= 100 ? 20 : (vol_pct >= 10 ? 14 : 8);
-		canvas.draw_text({ box_x + 38 + num_offset, hud_top_y + 8 }, "%", 1, COLOR_VOL_FILL);
+		canvas.draw_text({ box_x + 38 + num_offset, hud_top_y + 8 }, "%", 1, Color.VOL_FILL);
 
 		int bar_x = box_x + 10;
 		int bar_y = hud_top_y + 20;
 		int bar_w = box_w - 20;
 		int bar_h = 8;
-		canvas.draw_rect({ bar_x, bar_y }, { bar_w, bar_h }, COLOR_BAR_BG);
+		canvas.draw_rect({ bar_x, bar_y }, { bar_w, bar_h }, Color.BAR_BG);
 
 		int fill_w    = math::clamp((int)(bar_w * (synth_engine.master_volume / 2.0f)), 0, bar_w);
-		Rgba fill_col = synth_engine.master_volume > 1.2f ? COLOR_VOL_HIGH : COLOR_VOL_FILL;
+		Rgba fill_col = synth_engine.master_volume > 1.2f ? Color.VOL_HIGH : Color.VOL_FILL;
 		canvas.draw_rect({ bar_x, bar_y }, { fill_w, bar_h }, fill_col);
 	}
 
@@ -1350,39 +1289,83 @@ fn void Visualizer.render(&self, Canvas* canvas, float dt)
 		{ legend_x, legend_y },
 		"[1-9] INSTRUMENT   [Z/X] SHIFT OCTAVE   [ENTER] REC   [SPACE] PLAY",
 		1,
-		COLOR_LEGEND_TEXT
+		Color.LEGEND_TEXT
 	);
 }
 
-// EXPORTED ENGINE CALLBACKS
-fn float* update_audio(int samples) @export("update_audio")
+RLImage canvas_image;
+RLTexture canvas_texture;
+RLAudioStream audio_stream;
+
+fn void audio_callback(void* buffer, uint frames)
 {
 	sequencer.init();
-	float dt = (float)samples / SAMPLE_RATE;
+	float dt = (float)frames / SAMPLE_RATE;
 	sequencer.update(dt);
-	return synth_engine.render_buffer(samples);
+	float* audio_data = synth_engine.render_buffer((int)frames);
+	float* out        = (float*)buffer;
+	for (uint i = 0; i < frames; i++)
+	{
+		out[i] = audio_data[i];
+	}
 }
 
-fn Rgba* update_canvas(int width, int height, float dt, Event[] events) @export("update_canvas")
+fn void update_draw_frame()
 {
-	static Rgba[] pixels;
-	if (pixels.len < width * height) pixels = mem::new_array(Rgba, width * height);
+	float dt   = rl::get_frame_time();
+	int width  = 640;
+	int height = 480;
+
 	if (!visualizer.initialized) visualizer.init(width);
 
+	Rgba[] pixels = ((Rgba*)canvas_image.data)[0..width * height];
 	Canvas canvas = { .pixels = pixels, .width = width, .height = height };
 
-	midi_router.process_events(events);
+	midi_router.poll_raylib_input();
 
 	if (synth_engine.volume_hud_timer > 0.0f) synth_engine.volume_hud_timer -= dt;
 	if (synth_engine.inst_hud_timer > 0.0f) synth_engine.inst_hud_timer -= dt;
 
 	visualizer.render(&canvas, dt);
 
-	return pixels;
+	canvas_texture.update(canvas_image.data);
+
+	rl::begin_drawing();
+	rl::clear_background(rl::BLACK);
+	rl::draw_texture(canvas_texture, 0, 0, rl::WHITE);
+	// rl::draw_fps(width - 80, 20);
+	rl::end_drawing();
 }
 
-fn int main()
+fn int main(String[] args) @winmain
 {
-	io::printn(" [ C3 PIANO & MIDI RECORDER ]");
+	rl::init_window(640, 480, "C3 PIANO & MIDI RECORDER - C3 & Raylib");
+	rl::init_audio_device();
+
+	canvas_image = rl::gen_image_color(640, 480, rl::BLACK);
+	canvas_texture = rl::load_texture_from_image(canvas_image);
+
+	audio_stream = rl::load_audio_stream((uint)SAMPLE_RATE, 32, 1);
+	audio_stream.set_callback(&audio_callback);
+	rl::play_audio_stream(audio_stream);
+
+	$if env::WASM:
+		emscripten_set_main_loop(&update_draw_frame, 60, 1);
+	$else
+		rl::set_target_fps(60);
+		while (!rl::window_should_close())
+		{
+			update_draw_frame();
+		}
+		rl::unload_audio_stream(audio_stream);
+		rl::close_audio_device();
+		rl::unload_texture(canvas_texture);
+		rl::unload_image(canvas_image);
+		rl::close_window();
+	$endif
+
 	return 0;
 }
+
+alias Em_callback_func = fn void();
+extern fn void emscripten_set_main_loop(Em_callback_func func, int fps, int simulate_infinite_loop);

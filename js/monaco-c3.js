@@ -1,5 +1,11 @@
 // js/monaco-c3.js
-import { getDocDbSymbols } from './compiler.js';
+import { getDocDbSymbols, openStdlibDoc } from './compiler.js';
+
+// Register editor-level commands into Monaco's global command registry.
+// Hover markdown command: URIs resolve through this global registry, NOT editor.addAction.
+export function registerEditorCommands(monacoInstance) {
+	monacoInstance.editor.registerCommand('c3.openStdlibDoc', (_accessor, uid) => openStdlibDoc(uid || ''));
+}
 
 let isNavigating = false;
 
@@ -221,13 +227,12 @@ export function setupMonacoC3(monaco) {
 				};
 			}
 
-			// 3. Fallback to opening std library website specs
+			// 3. Fallback to opening stdlib docs modal (or website if not yet cached)
 			if (isNavigating) {
-				isNavigating = false; // Reset so it only fires once per click
+				isNavigating = false;
 				const stdSym = matches.find(s => s.file && !s.file.includes('main.c3'));
 				if (stdSym) {
-					const docUrl = `https://c3-lang.org/standard-library/docs.html#${stdSym.uid}`;
-					window.open(docUrl, '_blank');
+					openStdlibDoc(stdSym.uid);
 				}
 			}
 			return null;
@@ -446,13 +451,19 @@ function formatSymbolHover(sym) {
 		footerParts.push(`*Defined in \`${sym.file}\`*`);
 	}
 
-	if (sym.uid && sym.uid.startsWith('std::')) {
-		const docUrl = `https://c3-lang.org/standard-library/docs.html#${sym.uid}`;
-		footerParts.push(`[Open Stdlib Docs ↗](${docUrl})`);
+	const isLibrarySymbol = sym.file && (
+		sym.file.startsWith('/usr/lib/c3/') ||
+		sym.file.startsWith('/c3build/')
+	);
+	if (sym.uid && isLibrarySymbol) {
+		// command: URIs require isTrusted:true on the IMarkdownString (set below)
+		const cmdArgs = encodeURIComponent(JSON.stringify([sym.uid]));
+		footerParts.push(`[Open Docs](command:c3.openStdlibDoc?${cmdArgs})`);
 	}
 
 	if (footerParts.length > 0) {
-		contents.push({ value: footerParts.join('\n\n') });
+		// isTrusted:true is required for command: URIs to be rendered as clickable links
+		contents.push({ value: footerParts.join('\n\n'), isTrusted: true });
 	}
 
 	return { contents: contents };

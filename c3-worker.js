@@ -1,20 +1,7 @@
 // c3-worker.js
-const isNode = typeof process === 'object' && typeof require === 'function';
-
-if (isNode) {
-	const path = require('path');
-	global.self = global;
-	global.require = require;
-	global.exports = exports;
-	global.module = module;
-	global.__dirname = path.join(__dirname, 'build');
-	global.__filename = path.join(global.__dirname, 'c3c.js');
-}
-
 console.log("[Worker] Worker script loaded and starting...");
 
 let runtimeReady = false;
-let originalCwd = null;
 
 let docgenBuffer = [];
 let isDocgenRunning = false;
@@ -24,6 +11,14 @@ let isVersionRunning = false;
 
 const SILENCE_EMSCRIPTEN_STDIO_WARNINGS = false;
 
+// Common c3c flags ensuring consistent standard library and build directory paths across all workers
+const COMMON_C3C_FLAGS = [
+	'--stdlib', '/usr/lib/c3/std',
+	'--libdir', '/usr/lib/c3/lib',
+	'--lib', 'raylib6',
+	'--build-dir', '/c3build',
+];
+
 const moduleProto = {
 	wasmBinary: null,
 	cachedData: null
@@ -32,57 +27,55 @@ const moduleProto = {
 var Module = Object.create(moduleProto);
 
 Module.noInitialRun = true;
+Module.preRun = [];
+Module.postRun = [];
 
 Module.instantiateWasm = function (imports, successCallback) {
-	console.log("[Worker] Module.instantiateWasm called!");
-	const isModule = Module.wasmBinary instanceof WebAssembly.Module;
-	console.log(`[Worker] instantiateWasm: isModule = ${isModule}`);
-	WebAssembly.instantiate(Module.wasmBinary, imports).then(output => {
-		const instance = isModule ? output : output.instance;
-		console.log("[Worker] WebAssembly.instantiate completed successfully.");
-		successCallback(instance);
-	}).catch(err => {
-		console.error("[Worker] WebAssembly.instantiate failed:", err);
-		postMessage({ type: 'stderr', text: 'instantiateWasm error: ' + err + '\n' });
-	});
+	console.log("[Worker] instantiateWasm called by Emscripten loader.");
+	if (!moduleProto.wasmBinary) {
+		console.error("[Worker] wasmBinary not found in Module prototype!");
+		return {};
+	}
+	const isModule = moduleProto.wasmBinary instanceof WebAssembly.Module;
+	if (isModule) {
+		console.log("[Worker] Instantiating from pre-compiled WebAssembly.Module...");
+		WebAssembly.instantiate(moduleProto.wasmBinary, imports).then(instance => {
+			console.log("[Worker] WebAssembly.instantiate success!");
+			successCallback(instance);
+		}).catch(err => {
+			console.error("[Worker] instantiateWasm error:", err);
+			postMessage({ type: 'failed', error: err.stack || String(err) });
+		});
+	} else {
+		console.log("[Worker] Instantiating from ArrayBuffer/Uint8Array...");
+		WebAssembly.instantiate(moduleProto.wasmBinary, imports).then(output => {
+			console.log("[Worker] WebAssembly.instantiate success!");
+			successCallback(output.instance);
+		}).catch(err => {
+			console.error("[Worker] instantiateWasm error:", err);
+			postMessage({ type: 'failed', error: err.stack || String(err) });
+		});
+	}
 	return {};
 };
 
-// Synchronously intercept FS requests for c3c.data to prevent network fetches
 Module.getPreloadedPackage = function (remotePackageName, remotePackageSize) {
-	console.log("[Worker] Module.getPreloadedPackage requested:", remotePackageName);
-	if (remotePackageName.endsWith('c3c.data')) {
-		console.log("[Worker] Returning cached c3c.data buffer from memory!");
-		return moduleProto.cachedData;
+	console.log(`[Worker] getPreloadedPackage requested: ${remotePackageName}`);
+	if (remotePackageName.endsWith('c3c.data') || remotePackageName.endsWith('.data')) {
+		if (moduleProto.cachedData) {
+			console.log(`[Worker] Returning preloaded data buffer (${moduleProto.cachedData.byteLength} bytes)`);
+			return moduleProto.cachedData;
+		}
+		console.warn(`[Worker] cachedData is not yet set in Module prototype.`);
 	}
 	return null;
 };
 
-Module.locateFile = function (path) {
-	console.log(`[Worker] Module.locateFile called for: ${path}`);
-	if (path.endsWith('.data')) return 'build/c3c.data';
-	return path;
-};
-
-function shouldSilenceWarning(text) {
-	if (!SILENCE_EMSCRIPTEN_STDIO_WARNINGS) {
-		return false;
-	}
-	return text.includes("stdio streams had content in them that was not flushed") ||
-	       text.includes("you should set EXIT_RUNTIME to 1") ||
-	       text.includes("this may also be due to not including full filesystem support");
-}
-
 Module.print = function (text) {
-	if (shouldSilenceWarning(text)) {
-		console.warn("[Worker Intercepted Warning] " + text);
-		return;
-	}
-
-	if (isVersionRunning) {
-		versionBuffer.push(text);
-	} else if (isDocgenRunning) {
+	if (isDocgenRunning) {
 		docgenBuffer.push(text);
+	} else if (isVersionRunning) {
+		versionBuffer.push(text);
 	} else {
 		postMessage({ type: 'stdout', text: text + '\n' });
 	}
@@ -90,31 +83,19 @@ Module.print = function (text) {
 
 Module.printErr = function (text) {
 	if (isDocgenRunning) {
-		console.warn("[Worker Intercepted Docgen Stderr] " + text);
+		return;
+	} else if (isVersionRunning) {
 		return;
 	}
-
-	if (isVersionRunning) {
-		versionBuffer.push(text);
+	if (SILENCE_EMSCRIPTEN_STDIO_WARNINGS && text.includes('warning: no standard file descriptor')) {
 		return;
 	}
-
-	if (shouldSilenceWarning(text)) {
-		console.warn("[Worker Intercepted Warning] " + text);
-		return;
-	}
-
 	postMessage({ type: 'stderr', text: text + '\n' });
 };
 
 Module.onRuntimeInitialized = function () {
 	console.log("[Worker] Module.onRuntimeInitialized called!");
 	runtimeReady = true;
-
-	if (isNode && originalCwd) {
-		process.chdir(originalCwd);
-	}
-
 	postMessage({ type: 'ready' });
 };
 
@@ -130,30 +111,10 @@ self.onmessage = function (e) {
 			console.log("[Worker] Storing preloaded c3c.data ArrayBuffer into prototype...");
 			moduleProto.cachedData = msg.c3cData;
 
-			if (isNode) {
-				const path = require('path');
-				originalCwd = process.cwd();
-				process.chdir(path.join(__dirname, 'build'));
-
-				console.log("[Worker] Evaluating c3c.js text in scoped function (Node)...");
-				const runCompiler = new Function('Module', '__dirname', '__filename', 'require', 'exports', 'module', msg.c3cJs);
-				runCompiler(
-					Module,
-					global.__dirname,
-					global.__filename,
-					global.require,
-					global.exports,
-					global.module
-				);
-			} else {
-				console.log("[Worker] Evaluating c3c.js text in global scope (Browser)...");
-				(0, eval)(msg.c3cJs);
-			}
+			console.log("[Worker] Evaluating c3c.js text in global scope (Browser)...");
+			(0, eval)(msg.c3cJs);
 			console.log("[Worker] build/c3c.js evaluated successfully.");
 		} catch (err) {
-			if (isNode && originalCwd) {
-				process.chdir(originalCwd);
-			}
 			console.error("[Worker] Error during init_module:", err);
 			postMessage({ type: 'failed', error: 'Failed to load WASM runtime: ' + err.message });
 		}
@@ -215,7 +176,7 @@ self.onmessage = function (e) {
 					'--json',
 					'--target', 'emscripten',
 					'--emit-stdlib=yes',
-					'--stdlib', '/usr/lib/c3/std',
+					...COMMON_C3C_FLAGS,
 					'/main.c3',
 					'--max-mem', '64',
 				]);
@@ -280,6 +241,94 @@ self.onmessage = function (e) {
 		return;
 	}
 
+	// Generate a full docs.html for the stdlib (run once on startup).
+	// c3c docgen without --json writes docs.html to the current working directory.
+	if (msg.type === 'docgen_html') {
+		if (!runtimeReady) return;
+
+		let errFileStream = null;
+		let oldStderrStream = null;
+
+		try {
+			// Silence compiler stderr during docgen_html
+			removeFile('/docgen_html_err.log');
+			Module.FS.writeFile('/docgen_html_err.log', '');
+			errFileStream = Module.FS.open('/docgen_html_err.log', 'w');
+			oldStderrStream = Module.FS.streams[2];
+			Module.FS.streams[2] = errFileStream;
+
+			isDocgenRunning = true;
+			// Anchor CWD to / so docs.html is written to a known path
+			Module.FS.chdir('/');
+			removeFile('/docs.html');
+			// c3c docgen needs at least one source file to run; write a minimal stub.
+			// --emit-stdlib=yes ensures the full stdlib is documented alongside it.
+			Module.FS.writeFile('/docgen_stub.c3', 'module docgen_stub;\n');
+
+			try {
+				Module.callMain([
+					'docgen',
+					'--target', 'emscripten',
+					'--emit-stdlib=yes',
+					...COMMON_C3C_FLAGS,
+					'--max-mem', '64',
+					'/docgen_stub.c3',
+				]);
+			} catch (exitErr) {}
+			removeFile('/docgen_stub.c3');
+
+		} catch (err) {
+			console.error("[Worker DocgenHTML] Failed:", err);
+		} finally {
+			isDocgenRunning = false;
+
+			const fflush = Module._fflush || Module['_fflush'];
+			if (fflush) { try { fflush(0); } catch (e) {} }
+
+			if (oldStderrStream) Module.FS.streams[2] = oldStderrStream;
+			if (errFileStream) { try { Module.FS.close(errFileStream); } catch (e) {} }
+			removeFile('/docgen_html_err.log');
+		}
+
+		// Try /docs.html first, then CWD/docs.html as fallback
+		const cwd = Module.FS.cwd();
+		const candidates = ['/docs.html', `${cwd}/docs.html`.replace('//', '/')];
+		let html = null;
+		for (const path of candidates) {
+			try {
+				const text = Module.FS.readFile(path, { encoding: 'utf8' });
+				if (text && text.length > 0) {
+					html = text;
+					removeFile(path);
+					break;
+				}
+			} catch (_) {}
+		}
+
+		if (html) {
+			postMessage({ type: 'docgen_html_ready', html });
+		} else {
+			console.error(`[Worker DocgenHTML] docs.html not found. CWD was: ${cwd}`);
+			postMessage({ type: 'docgen_html_failed' });
+		}
+		return;
+	}
+
+	// On-demand source file read from the Emscripten VFS (used by the persistent stdlib worker).
+	if (msg.type === 'read_file') {
+		if (!runtimeReady) {
+			postMessage({ type: 'file_content', path: msg.path, content: null, error: 'Not ready' });
+			return;
+		}
+		try {
+			const content = Module.FS.readFile(msg.path, { encoding: 'utf8' });
+			postMessage({ type: 'file_content', path: msg.path, content });
+		} catch (e) {
+			postMessage({ type: 'file_content', path: msg.path, content: null, error: e.message });
+		}
+		return;
+	}
+
 	if (msg.type !== 'compile') return;
 
 	if (!runtimeReady) {
@@ -324,12 +373,13 @@ self.onmessage = function (e) {
 			'--linker=builtin',
 			'--ansi=no',
 			'-o', '/main.wasm',
-			'--stdlib', '/usr/lib/c3/std',
+			...COMMON_C3C_FLAGS,
 			'-L', '/usr/lib/c3/wasm32-emscripten',
 			'-l', 'c',
 			'-l', 'dlmalloc',
 			'-l', 'stubs',
 			'-l', 'sockets',
+			'-l', 'clang_rt.builtins',
 			'-z', '--no-entry',
 			'-z', '--export=main',
 			'-z', '--export=__wasm_call_ctors',
@@ -339,6 +389,7 @@ self.onmessage = function (e) {
 			'-z', '--export=ntohs',
 			'-z', '--export=htonl',
 			'-z', '--export=ntohl',
+			'-z', '--export-table',
 			'-z', '--allow-undefined',
 			'-z', '-zstack-size=1048576',
 			...userFlags,
@@ -376,118 +427,4 @@ function removeFile(path) {
 	try {
 		Module.FS.unlink(path);
 	} catch { }
-}
-
-// ==========================================
-// --- NODE.JS TEST SUITE BINDING LAYER ---
-// ==========================================
-if (isNode) {
-	const fs = require('fs');
-	const path = require('path');
-	const buildDir = path.join(__dirname, 'build');
-
-	if (!fs.existsSync(path.join(buildDir, 'c3c.js')) || !fs.existsSync(path.join(buildDir, 'c3c.wasm'))) {
-		console.error("Error: Please run `./build.sh` once first to generate build/ artifacts.");
-		process.exit(1);
-	}
-
-	console.log("[Node] Initializing unified offline test harness...");
-
-	const testCode = `
-	module main;
-	import std;
-
-	fn void main() {
-		io::printn("Hello from the headless C3 browser playground!");
-
-		@pool() {
-			double[] temp_vals = mem::temp_array(double, 3);
-			temp_vals[0] = 3.14159;
-			temp_vals[1] = 2.71828;
-			temp_vals[2] = 1.61803;
-
-			foreach (idx, val : temp_vals) {
-				io::printfn("temp_vals[%d] = %.5f", idx, val);
-			}
-		};
-	}
-	`;
-
-	const c3cJsText = fs.readFileSync(path.join(buildDir, 'c3c.js'), 'utf8');
-	const c3cWasmBuffer = fs.readFileSync(path.join(buildDir, 'c3c.wasm'));
-	const c3cDataBuffer = fs.readFileSync(path.join(buildDir, 'c3c.data'));
-
-	const c3cDataArrayBuffer = c3cDataBuffer.buffer.slice(
-		c3cDataBuffer.byteOffset,
-		c3cDataBuffer.byteOffset + c3cDataBuffer.byteLength
-	);
-
-	// Intercept postMessage for terminal reporting
-	global.postMessage = function (msg) {
-		if (msg.type === 'ready') {
-			console.log("[Node] Compiler ready. Dispatching test compile event...");
-			self.onmessage({
-				data: {
-					type: 'compile',
-					source: testCode
-				}
-			});
-		} else if (msg.type === 'stdout') {
-			process.stdout.write(`[Compiler STDOUT] ${msg.text}`);
-		} else if (msg.type === 'stderr') {
-			process.stderr.write(`[Compiler STDERR] ${msg.text}`);
-		} else if (msg.type === 'compiled') {
-			console.log(`\n[Node] Compilation successful! (${msg.wasm.byteLength} bytes)`);
-			runUserProgram(msg.wasm);
-		} else if (msg.type === 'failed') {
-			console.error("\n[Node] Compilation failed:", msg.error);
-			process.exit(1);
-		}
-	};
-
-	function runUserProgram(wasmBuffer) {
-		console.log("\nExecuting Compiled WASM via Emscripten User Runtime...");
-		const C3EmscriptenRuntime = require(path.join(buildDir, 'emscripten_runtime.js'));
-
-		C3EmscriptenRuntime({
-			wasmBinary: wasmBuffer,
-			print(text) {
-				console.log(`[USER PROGRAM] ${text}`);
-			},
-			printErr(text) {
-				console.error(`[USER ERR] ${text}`);
-			},
-			onExit(code) {
-				console.log(`[USER EXIT] Code: ${code}`);
-				process.exit(code); // Propagate user program exit code to shell for CI testing [2]
-			},
-			noInitialRun: true
-		}).then(instance => {
-			const mainFn = instance.wasmExports?.main || instance.wasmExports?.['__main_argc_argv'];
-			if (mainFn) {
-				const ret = mainFn(0, 0);
-				console.log(`\n[Run complete. Exit code returned: ${ret}]`);
-			} else {
-				console.error("Error: main function export not found in WASM program.");
-				process.exit(1);
-			}
-		}).catch(err => {
-			console.error("WASM program crashed during execution:", err);
-			process.exit(1);
-		});
-	}
-
-	WebAssembly.compile(c3cWasmBuffer).then(wasmModule => {
-		self.onmessage({
-			data: {
-				type: 'init_module',
-				wasmModule: wasmModule,
-				c3cJs: c3cJsText,
-				c3cData: c3cDataArrayBuffer
-			}
-		});
-	}).catch(err => {
-		console.error("[Node] Failed to compile c3c.wasm:", err);
-		process.exit(1);
-	});
 }

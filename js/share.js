@@ -4,8 +4,21 @@ let lastSharedCode = null;
 let lastSharedUrl = null;
 
 export async function getSharedCode() {
+	// 1. Check for URL query parameter or hash example ID (e.g. ?example=neon_overdrive or #example=neon_overdrive)
+	const urlParams = new URLSearchParams(window.location.search);
+	const exampleParam = urlParams.get('example') || urlParams.get('ex');
+	if (exampleParam) {
+		return { type: 'example', id: exampleParam };
+	}
+
 	const hash = window.location.hash.trim();
 	if (!hash) return null;
+
+	if (hash.startsWith('#example=') || hash.startsWith('#ex=')) {
+		const exId = hash.replace(/^#(?:example|ex)=/, '');
+		if (exId) return { type: 'example', id: exId };
+	}
+
 	const key = hash.replace(/^#(?:p=)?/, '');
 	if (!key) return null;
 
@@ -15,7 +28,7 @@ export async function getSharedCode() {
 			const code = await res.text();
 			lastSharedCode = code;
 			lastSharedUrl = `${window.location.origin}${window.location.pathname}#p=${key}`;
-			return code;
+			return { type: 'snippet', code: code };
 		}
 	} catch (err) {
 		console.error("Failed to fetch snippet from pastes.dev:", err);
@@ -24,9 +37,12 @@ export async function getSharedCode() {
 }
 
 export async function createShareLink(codeValue) {
+	// Build a clean URL with no query params - just origin+pathname+hash to avoid conflicting with the paste hash
+	const cleanBase = `${window.location.origin}${window.location.pathname}`;
+
 	if (lastSharedCode === codeValue && lastSharedUrl) {
 		await navigator.clipboard.writeText(lastSharedUrl);
-		history.replaceState(null, null, `#p=${lastSharedUrl.split('#p=')[1]}`);
+		history.replaceState(null, null, `${cleanBase}#p=${lastSharedUrl.split('#p=')[1]}`);
 		return lastSharedUrl;
 	}
 
@@ -38,10 +54,11 @@ export async function createShareLink(codeValue) {
 
 	if (res.ok) {
 		const data = await res.json();
-		const shareUrl = `${window.location.origin}${window.location.pathname}#p=${data.key}`;
+		const shareUrl = `${cleanBase}#p=${data.key}`;
 		lastSharedCode = codeValue;
 		lastSharedUrl = shareUrl;
-		history.replaceState(null, null, `#p=${data.key}`);
+		// Replace the full URL (strips any ?example=... query param)
+		history.replaceState(null, null, shareUrl);
 		await navigator.clipboard.writeText(shareUrl);
 		return shareUrl;
 	}

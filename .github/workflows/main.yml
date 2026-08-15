@@ -54,7 +54,7 @@ jobs:
         run: ./build.sh Release latest
 
       - name: Run Integration Tests
-        run: node c3-worker.js
+        run: node test/test_all_examples.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
