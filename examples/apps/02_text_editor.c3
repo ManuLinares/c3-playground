@@ -158,7 +158,7 @@ enum FontGlyph : (Char32 ch, ulong bitmap)
 	PERCENT     { '%', 0b11000_11001_00010_00100_01000_10011_00011_00000 },
 	CARET       { '^', 0b00100_01010_10001_00000_00000_00000_00000_00000 },
 	PIPE        { '|', 0b00100_00100_00100_00100_00100_00100_00100_00000 },
-	ACUTE       { '´', 0b00010_00100_01000_00000_00000_00000_00000_00000 }, // ;)
+	ACUTE       { '´', 0b00010_00100_01000_00000_00000_00000_00000_00000 },
 
 	// Accented Symbols
 	N_TILDE       { 'Ñ', 0b01100_10001_11001_10101_10011_10001_10001_00000 },
@@ -249,6 +249,7 @@ struct UndoSnapshot
 struct Editor
 {
 	GapBuffer buffer;
+	List{sz} line_starts;
 	sz cursor_pos;
 	sz sel_anchor;
 	int target_col;
@@ -270,6 +271,35 @@ struct Editor
 	Vec2 last_click_pos;
 }
 
+fn void Editor.rebuild_line_index(&self)
+{
+	if (self.line_starts.entries == null)
+	{
+		self.line_starts.init(mem);
+	}
+	self.line_starts.clear();
+	self.line_starts.push(0);
+
+	char[] pref = self.buffer.prefix();
+	for (sz i = 0; i < pref.len; i++)
+	{
+		if (pref[i] == '\n')
+		{
+			self.line_starts.push(i + 1);
+		}
+	}
+
+	sz pref_len = pref.len;
+	char[] suff = self.buffer.suffix();
+	for (sz j = 0; j < suff.len; j++)
+	{
+		if (suff[j] == '\n')
+		{
+			self.line_starts.push(pref_len + j + 1);
+		}
+	}
+}
+
 fn void Editor.clear_undo_stack(&self)
 {
 	while (try snap = self.undo_stack.pop())
@@ -283,6 +313,7 @@ fn void Editor.load_text(&self, String str)
 {
 	self.clear_undo_stack();
 	self.buffer.load_bytes((char[])str);
+	self.rebuild_line_index();
 	self.cursor_pos = self.buffer.len();
 	self.sel_anchor = self.cursor_pos;
 	self.target_col = 0;
@@ -293,6 +324,8 @@ fn void Editor.load_text(&self, String str)
 
 fn void Editor.save_undo_state(&self)
 {
+	if (self.buffer.len() > 50 * 1024 * 1024) return;
+
 	if (self.undo_stack.len() >= MAX_UNDO_STATES)
 	{
 		UndoSnapshot* old = self.undo_stack.pop_first()!!;
@@ -312,6 +345,7 @@ fn void Editor.undo(&self)
 	if (try snap = self.undo_stack.pop())
 	{
 		self.buffer.load_bytes((char[])snap.text);
+		self.rebuild_line_index();
 		self.cursor_pos = snap.cursor_pos;
 		self.sel_anchor = snap.sel_anchor;
 		self.target_col = self.get_col(self.cursor_pos);
@@ -323,6 +357,8 @@ fn void Editor.undo(&self)
 extern fn void set_web_clipboard(ZString text) @feat(WASM);
 fn void set_clipboard(ZString text)
 {
+	if (text.str_view().len > 10 * 1024 * 1024) return;
+
 	$if env::WASM:
 		set_web_clipboard(text);
 	$else
@@ -361,6 +397,7 @@ fn void Editor.paste_clipboard(&self)
 	self.delete_selection();
 
 	self.buffer.insert_bytes(self.cursor_pos, (char[])text);
+	self.rebuild_line_index();
 	self.cursor_pos += text.len;
 	self.sel_anchor = self.cursor_pos;
 	self.target_col = self.get_col(self.cursor_pos);
@@ -368,13 +405,33 @@ fn void Editor.paste_clipboard(&self)
 
 fn int Editor.get_line(&self, sz pos)
 {
-	return (int)self.buffer.count_char_range('\n', 0, pos);
+	sz len = self.line_starts.len();
+	if (len <= 1 || pos == 0) return 0;
+	sz low  = 0;
+	sz high = len - 1;
+	sz ans  = 0;
+	while (low <= high)
+	{
+		sz mid = low + (high - low) / 2;
+		if (self.line_starts[mid] <= pos)
+		{
+			ans = mid;
+			low = mid + 1;
+		}
+		else
+		{
+			if (mid == 0) break;
+			high = mid - 1;
+		}
+	}
+	return (int)ans;
 }
 
 fn int Editor.get_col(&self, sz pos)
 {
 	int col                = 0;
-	GapBufferIterator iter = self.buffer.iterator(0, pos);
+	sz line_start          = self.get_line_start(pos);
+	GapBufferIterator iter = self.buffer.iterator(line_start, pos);
 	while (try Char32 c = iter.next())
 	{
 		switch (c)
@@ -396,39 +453,31 @@ fn int Editor.get_col(&self, sz pos)
 
 fn int Editor.get_total_lines(&self)
 {
-	return (int)self.buffer.count_char_range('\n') + 1;
+	if (self.line_starts.len() == 0) return 1;
+	return (int)self.line_starts.len();
 }
 
 fn sz Editor.get_line_start(&self, sz pos)
 {
-	if (try idx = self.buffer.rindex_of_char('\n', pos))
-	{
-		return idx + 1;
-	}
-	return 0;
+	int line = self.get_line(pos);
+	return self.get_line_start_of_line(line);
 }
 
 fn sz Editor.get_line_end(&self, sz pos)
 {
-	if (try idx = self.buffer.index_of_char('\n', pos))
+	int line = self.get_line(pos);
+	if (line + 1 < (int)self.line_starts.len())
 	{
-		return idx;
+		return self.line_starts[(sz)(line + 1)] - 1;
 	}
 	return self.buffer.len();
 }
 
 fn sz Editor.get_line_start_of_line(&self, int target_line)
 {
-	if (target_line <= 0) return 0;
-	int cur_line = 0;
-	sz pos       = 0;
-	while (try next_nl = self.buffer.index_of_char('\n', pos))
-	{
-		cur_line++;
-		pos = next_nl + 1;
-		if (cur_line == target_line) return pos;
-	}
-	return self.buffer.len();
+	if (target_line <= 0 || self.line_starts.len() == 0) return 0;
+	if (target_line >= (int)self.line_starts.len()) return self.buffer.len();
+	return self.line_starts[target_line];
 }
 
 fn sz Editor.get_pos_from_line_col(&self, int target_line, int target_col)
@@ -537,6 +586,7 @@ fn void Editor.delete_selection(&self)
 	sz end   = math::max(self.cursor_pos, self.sel_anchor);
 
 	self.buffer.delete_range(start, end);
+	self.rebuild_line_index();
 	self.cursor_pos = start;
 	self.sel_anchor = start;
 	self.target_col = self.get_col(self.cursor_pos);
@@ -559,6 +609,7 @@ fn void Editor.insert_codepoint(&self, Char32 c)
 	self.delete_selection();
 
 	self.buffer.insert_bytes(self.cursor_pos, (char[])buf[:len]);
+	self.rebuild_line_index();
 	self.cursor_pos += len;
 	self.sel_anchor = self.cursor_pos;
 	self.target_col = self.get_col(self.cursor_pos);
@@ -579,6 +630,7 @@ fn void Editor.handle_backspace(&self)
 	{
 		sz prev = self.get_prev_char_pos(self.cursor_pos);
 		self.buffer.delete_range(prev, self.cursor_pos);
+		self.rebuild_line_index();
 		self.cursor_pos = prev;
 		self.sel_anchor = self.cursor_pos;
 		self.target_col = self.get_col(self.cursor_pos);
@@ -600,6 +652,7 @@ fn void Editor.handle_delete(&self)
 	{
 		sz next = self.get_next_char_pos(self.cursor_pos);
 		self.buffer.delete_range(self.cursor_pos, next);
+		self.rebuild_line_index();
 	}
 }
 
@@ -650,7 +703,7 @@ fn void Editor.poll_raylib_input(&self, int visible_lines, int visible_cols)
 	sz prev_len = self.buffer.len();
 
 	self.shift_held = rl::is_key_down(LEFT_SHIFT) || rl::is_key_down(RIGHT_SHIFT);
-	self.ctrl_held = rl::is_key_down(LEFT_CONTROL) || rl::is_key_down(RIGHT_CONTROL);
+	self.ctrl_held  = rl::is_key_down(LEFT_CONTROL) || rl::is_key_down(RIGHT_CONTROL);
 
 	RLVector2 mouse_v = rl::get_mouse_position();
 	Vec2 mouse_pos    = { mouse_v.x, mouse_v.y };
@@ -733,8 +786,6 @@ fn void Editor.poll_raylib_input(&self, int visible_lines, int visible_cols)
 				0, 
 				math::max(0, total_lines - 1)
 			);
-
-
 		}
 	}
 
@@ -933,6 +984,7 @@ abcdefghijklmnopqrstuvwxyz
 	rl::begin_scissor_mode(TEXT_START_X, HEADER_HEIGHT, editor_w, editor_h);
 
 	// active line highlight
+	int total_lines     = editor.get_total_lines();
 	int cline           = editor.get_line(editor.cursor_pos);
 	int ccol            = editor.get_col(editor.cursor_pos);
 	int active_rel_line = cline - editor.scroll_line;
@@ -954,10 +1006,16 @@ abcdefghijklmnopqrstuvwxyz
 	sz sel_end   = math::max(editor.cursor_pos, editor.sel_anchor);
 	bool has_sel = sel_start != sel_end;
 
-	int cur_line = 0;
-	int cur_col  = 0;
+	int start_line = math::clamp(editor.scroll_line, 0, math::max(0, total_lines - 1));
+	int end_line   = math::min(total_lines, start_line + visible_lines + 1);
 
-	GapBufferIterator iter = editor.buffer.iterator();
+	sz start_pos   = editor.get_line_start_of_line(start_line);
+	sz end_pos     = editor.get_line_start_of_line(end_line);
+
+	int cur_line   = start_line;
+	int cur_col    = 0;
+
+	GapBufferIterator iter = editor.buffer.iterator(start_pos, end_pos);
 	while (iter.has_next())
 	{
 		sz i     = iter.byte_pos();
@@ -1031,7 +1089,6 @@ abcdefghijklmnopqrstuvwxyz
 	rl::draw_rectangle(0, HEADER_HEIGHT, GUTTER_WIDTH, editor_h, COLOR_GUTTER_BG);
 	rl::draw_rectangle(GUTTER_WIDTH, HEADER_HEIGHT, GUTTER_BORDER_W, editor_h, COLOR_GUTTER_BORDER);
 
-	int total_lines = editor.get_total_lines();
 	for (int l = 0; l < visible_lines; l++)
 	{
 		int line_idx = l + editor.scroll_line;
