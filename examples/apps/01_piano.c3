@@ -1299,7 +1299,6 @@ RLAudioStream audio_stream;
 
 fn void audio_callback(void* buffer, uint frames)
 {
-	sequencer.init();
 	float dt = (float)frames / SAMPLE_RATE;
 	sequencer.update(dt);
 	float* audio_data = synth_engine.render_buffer((int)frames);
@@ -1341,6 +1340,8 @@ fn int main(String[] args) @winmain
 {
 	rl::init_window(640, 480, "C3 PIANO & MIDI RECORDER - C3 & Raylib");
 	rl::init_audio_device();
+
+	sequencer.init();
 
 	canvas_image = rl::gen_image_color(640, 480, rl::BLACK);
 	canvas_texture = rl::load_texture_from_image(canvas_image);
