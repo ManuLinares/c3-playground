@@ -66,7 +66,7 @@ void main() {
 `;
 
 const String FRAG_SHADER = `#version 300 es
-precision mediump float;
+precision highp float;
 in vec2 fragTexCoord;
 out vec4 finalColor;
 
