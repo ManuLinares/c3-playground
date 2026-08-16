@@ -102,7 +102,7 @@ fn void audio_callback(void* buffer, uint frames)
 		samples[i] = val;
 
 		scope_buffer[scope_write_idx] = val;
-		scope_write_idx = (scope_write_idx + 1) % scope_buffer.len;
+		scope_write_idx = (scope_write_idx + 1) % (int)scope_buffer.len;
 	}
 }
 
@@ -122,8 +122,8 @@ fn void update_draw_frame()
 
 	for (int i = 0; i < scope_buffer.len - 1; i++)
 	{
-		int x1 = 20 + (i * (SCREEN_WIDTH - 40)) / scope_buffer.len;
-		int x2 = 20 + ((i + 1) * (SCREEN_WIDTH - 40)) / scope_buffer.len;
+		int x1 = 20 + (i * (SCREEN_WIDTH - 40)) / (int)scope_buffer.len;
+		int x2 = 20 + ((i + 1) * (SCREEN_WIDTH - 40)) / (int)scope_buffer.len;
 		int y1 = center_y + (int)(scope_buffer[i] * 120.0f);
 		int y2 = center_y + (int)(scope_buffer[i + 1] * 120.0f);
 		rl::draw_line(x1, y1, x2, y2, (RLColor) { 244, 63, 94, 255 });
