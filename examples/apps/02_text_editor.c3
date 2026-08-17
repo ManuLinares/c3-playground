@@ -20,18 +20,15 @@ const int CURSOR_WIDTH        = 2;
 const int CURSOR_EXTRA_HEIGHT = 2;
 const int SELECTION_PADDING_Y = 2;
 
-// Layout Geometry
-const int HEADER_HEIGHT        = 38;
+// Layout Geometry Constants
+const int HEADER_HEIGHT        = 0;
 const int FOOTER_HEIGHT        = 26;
-const int GUTTER_WIDTH         = 56;
 const int GUTTER_BORDER_W      = 2;
 const int GUTTER_PADDING_RIGHT = 8;
 const int TEXT_PADDING_X       = 8;
 const int TEXT_PADDING_Y       = 6;
-const int TEXT_START_X         = GUTTER_WIDTH + GUTTER_BORDER_W + TEXT_PADDING_X;
-const int TEXT_START_Y         = HEADER_HEIGHT + TEXT_PADDING_Y;
 
-const float CURSOR_BLINK_RATE    = 0.5f;
+const float CURSOR_BLINK_RATE    = 0.5;
 const double DOUBLE_CLICK_TIME   = 0.35;
 const int HORIZONTAL_SCROLL_STEP = 7;
 const int VERTICAL_SCROLL_STEP   = 3;
@@ -55,116 +52,358 @@ const Rgba COLOR_ACCENT_YELLOW  = { 250, 204, 21, 255 };
 const Rgba COLOR_SELECTION_BG   = { 3, 105, 161, 255 };
 const Rgba COLOR_CURSOR         = { 56, 189, 248, 255 };
 
+fn int get_num_digits(int n)
+{
+	if (n <= 0) return 1;
+	int count = 0;
+	while (n > 0)
+	{
+		count++;
+		n /= 10;
+	}
+	return count;
+}
+
+// Line-State Syntax Highlighting Enums & Types
+
+enum LineState : int
+{
+	NORMAL,
+	IN_BLOCK_COMMENT,
+	IN_CONTRACT_COMMENT,
+	IN_RAW_STRING
+}
+
+enum TokenType : (RLColor color, String[] keywords)
+{
+	DEFAULT { { 226, 232, 240, 255 }, { } },
+
+	KEYWORD { { 255, 123, 114, 255 }, {
+		"alias", "assert", "asm", "attrdef", "attrgroup", "attrmacro", "bitstruct", "break",
+		"case", "catch", "cenum", "const", "constdef", "constset", "continue", "default",
+		"defer", "distinct", "do", "else", "enum", "extern", "false", "faultconst", "faultdef",
+		"faultset", "fn", "for", "foreach", "foreach_r", "if", "import", "inline", "interface",
+		"lengthof", "macro", "module", "nextcase", "null", "return", "scope", "static", "struct",
+		"switch", "tlocal", "true", "try", "typedef", "union", "var", "while", "excuse"
+	} },
+
+	TYPE { { 126, 231, 135, 255 }, {
+		"any", "void", "bool", "char", "double", "float", "float16", "bfloat", "bfloat16",
+		"float128", "int128", "int", "ichar", "iptr", "sz", "long", "short", "uint128",
+		"uint", "ulong", "uptr", "ushort", "usz", "typeid", "fault", "untypedlist",
+		"$Typeof", "$Typefrom"
+	} },
+
+	ATTRIBUTE { { 255, 166, 87, 255 }, {
+		"@align", "@allow_deprecated", "@benchmark", "@bigendian", "@builtin", "@callconv",
+		"@cname", "@compact", "@const", "@constinit", "@deprecated", "@dynamic", "@export",
+		"@feat", "@finalizer", "@format", "@if", "@init", "@inline", "@jump", "@link",
+		"@littleendian", "@local", "@maydiscard", "@mustinit", "@naked", "@noalias",
+		"@nodiscard", "@noinit", "@noinline", "@nopadding", "@norecurse", "@noreturn",
+		"@nosanitize", "@nostrip", "@obfuscate", "@operator", "@operator_r", "@operator_s",
+		"@optional", "@overlap", "@packed", "@private", "@public", "@pure", "@reflect",
+		"@safeinfer", "@safemacro", "@section", "@simd", "@tag", "@test", "@unused",
+		"@used", "@wasm", "@weak", "@weaklink", "@winmain"
+	} },
+
+	DIRECTIVE { { 255, 123, 114, 255 }, {
+		"$assert", "$case", "$concat", "$default", "$defined", "$echo", "$else", "$embed",
+		"$endfor", "$endforeach", "$endif", "$endswitch", "$error", "$eval", "$exec", "$expand",
+		"$feat", "$feature", "$for", "$foreach", "$if", "$include", "$reflect", "$stringify",
+		"$switch", "$vaarg", "$vaexpr", "$varef"
+	} },
+
+	BUILTIN { { 210, 168, 255, 255 }, {
+		"$$abs", "$$acos", "$$asin", "$$atan", "$$any_make", "$$atomic_load", "$$atomic_store",
+		"$$atomic_fetch_exchange", "$$atomic_fetch_add", "$$atomic_fetch_sub", "$$atomic_fetch_and",
+		"$$atomic_fetch_nand", "$$atomic_fetch_or", "$$atomic_fetch_xor", "$$atomic_fetch_max",
+		"$$atomic_fetch_min", "$$atomic_fetch_inc_wrap", "$$atomic_fetch_dec_wrap", "$$bitreverse",
+		"$$breakpoint", "$$bswap", "$$ceil", "$$compare_exchange", "$$copysign", "$$cos", "$$cosh",
+		"$$clz", "$$ctz", "$$add", "$$div", "$$mod", "$$mul", "$$neg", "$$sub", "$$exp", "$$exp2",
+		"$$exp10", "$$expect", "$$expect_with_probability", "$$fence", "$$floor", "$$fma",
+		"$$fmuladd", "$$frameaddress", "$$fshl", "$$fshr", "$$gather", "$$get_rounding_mode",
+		"$$int_to_mask", "$$log", "$$log2", "$$log10", "$$matrix_mul", "$$matrix_transpose",
+		"$$mask_to_int", "$$masked_load", "$$masked_store", "$$max", "$$memcpy", "$$memcpy_inline",
+		"$$memmove", "$$memset", "$$memset_inline", "$$min", "$$nearbyint", "$$overflow_add",
+		"$$overflow_mul", "$$overflow_sub", "$$popcount", "$$pow", "$$pow_int", "$$prefetch",
+		"$$reduce_add", "$$reduce_and", "$$reduce_fadd", "$$reduce_fmul", "$$reduce_max",
+		"$$reduce_min", "$$reduce_mul", "$$reduce_or", "$$reduce_xor", "$$reverse", "$$returnaddress",
+		"$$rint", "$$rnd", "$$round", "$$roundeven", "$$sat_add", "$$sat_shl", "$$sat_sub",
+		"$$sat_mul", "$$scatter", "$$select", "$$set_rounding_mode", "$$sprintf", "$$str_find",
+		"$$str_hash", "$$str_lower", "$$str_pascalcase", "$$str_replace", "$$str_upper",
+		"$$str_snakecase", "$$swizzle", "$$swizzle2", "$$sin", "$$sinh", "$$sqrt", "$$syscall",
+		"$$sysclock", "$$tan", "$$tanh", "$$trap", "$$trunc", "$$unaligned_load", "$$unaligned_store",
+		"$$unreachable", "$$veccomplt", "$$veccomple", "$$veccompgt", "$$veccompge", "$$veccompeq",
+		"$$veccompne", "$$volatile_load", "$$volatile_store", "$$wasm_memory_size", "$$wasm_memory_grow",
+		"$$wstr16", "$$wstr32", "$$DATE", "$$FILE", "$$FILEPATH", "$$FUNC", "$$FUNCTION", "$$LINE",
+		"$$LINE_RAW", "$$MODULE", "$$BENCHMARK_NAMES", "$$BENCHMARK_FNS", "$$TEST_NAMES", "$$TEST_FNS",
+		"$$TIME"
+	} },
+
+	FUNCTION       { { 210, 168, 255, 255 }, { } },
+	NUMBER         { { 121, 192, 255, 255 }, { } },
+	STRING_LITERAL { { 165, 214, 255, 255 }, { } },
+	COMMENT        { { 139, 148, 158, 255 }, { } },
+	CONTRACT       { { 165, 180, 198, 255 }, { } },
+	OPERATOR       { { 255, 123, 114, 255 }, { } },
+	DELIMITER      { { 201, 209, 217, 255 }, { } }
+}
+
+fn TokenType match_word_token(String w, bool is_fn)
+{
+	foreach (kw : TokenType.KEYWORD.keywords)   if (kw == w) return KEYWORD;
+	foreach (tw : TokenType.TYPE.keywords)      if (tw == w) return TYPE;
+	foreach (dw : TokenType.DIRECTIVE.keywords) if (dw == w) return DIRECTIVE;
+	foreach (bw : TokenType.BUILTIN.keywords)   if (bw == w) return BUILTIN;
+	foreach (aw : TokenType.ATTRIBUTE.keywords) if (aw == w) return ATTRIBUTE;
+
+	switch
+	{
+		case w.len > 1 && (w[0] == 'i' || w[0] == 'u') && w[1].is_digit():
+			return TYPE;
+		case w.len > 0 && w[0].is_upper():
+			return TYPE;
+		case is_fn:
+			return FUNCTION;
+		default:
+			return DEFAULT;
+	}
+}
+
+fn LineState lex_line(GapBuffer* buf, sz start, sz end, LineState start_state, TokenType[] out_tokens)
+{
+	LineState state = start_state;
+	sz len          = end - start;
+	sz idx          = 0;
+
+	while (idx < len)
+	{
+		char c = buf.get(start + idx);
+
+		switch
+		{
+			// Multi-line continuation states
+			case state == IN_BLOCK_COMMENT:
+				out_tokens[idx] = COMMENT;
+				if (c == '*' && idx + 1 < len && buf.get(start + idx + 1) == '/')
+				{
+					state = NORMAL;
+					idx++;
+					out_tokens[idx] = COMMENT;
+				}
+				idx++;
+
+			case state == IN_CONTRACT_COMMENT:
+				out_tokens[idx] = CONTRACT;
+				if (c == '*' && idx + 1 < len && buf.get(start + idx + 1) == '>')
+				{
+					state = NORMAL;
+					idx++;
+					out_tokens[idx] = CONTRACT;
+				}
+				idx++;
+
+			case state == IN_RAW_STRING:
+				out_tokens[idx] = STRING_LITERAL;
+				if (c == '`') state = NORMAL;
+				idx++;
+
+			// Single-line comments & hashbang
+			case (c == '/' && idx + 1 < len && buf.get(
+				start + idx + 1
+			) == '/') || (c == '#' && idx + 1 < len && buf.get(start + idx + 1) == '!'):
+				while (idx < len) out_tokens[idx++] = COMMENT;
+
+			// Comment block openers
+			case c == '/' && idx + 1 < len && buf.get(start + idx + 1) == '*':
+				out_tokens[idx++] = COMMENT;
+				out_tokens[idx++] = COMMENT;
+				state = IN_BLOCK_COMMENT;
+
+			case c == '<' && idx + 1 < len && buf.get(start + idx + 1) == '*':
+				out_tokens[idx++] = CONTRACT;
+				out_tokens[idx++] = CONTRACT;
+				state = IN_CONTRACT_COMMENT;
+
+			// Strings: verbatim (\\), raw (`), prefixed/standard quotes (" / ')
+			case c == '\\' && idx + 1 < len && buf.get(start + idx + 1) == '\\':
+				while (idx < len) out_tokens[idx++] = STRING_LITERAL;
+
+			case c == '`':
+				out_tokens[idx++] = STRING_LITERAL;
+				state = IN_RAW_STRING;
+
+			case c == '"' || c == '\'':
+				char quote = c;
+				out_tokens[idx++] = STRING_LITERAL;
+				while (idx < len)
+				{
+					char sc = buf.get(start + idx);
+					out_tokens[idx++] = STRING_LITERAL;
+					if (sc == quote && (idx < 2 || buf.get(start + idx - 2) != '\\')) break;
+				}
+
+			// Numbers (hex, octal, binary, floats)
+			case c.is_digit():
+				sz n_start = idx;
+				while (idx < len && (buf.get(start + idx)
+					.is_alnum() || buf.get(start + idx) == '.' || buf.get(start + idx) == '_')) idx++;
+				for (sz k = n_start; k < idx; k++) out_tokens[k] = NUMBER;
+
+			// Words: Identifiers, Keywords, Types, Attributes (@), Directives ($), Builtins ($$)
+			case c.is_alpha() || c == '_' || c == '@' || c == '$':
+				sz id_start = idx;
+				while (idx < len && (buf.get(start + idx)
+					.is_alnum() || buf.get(
+						start + idx
+					) == '_' || buf.get(start + idx) == '$' || buf.get(start + idx) == '@')) idx++;
+
+				sz id_len = idx - id_start;
+				char[128] stack_word;
+				char[] word_chars;
+
+				word_chars = (id_len <= 128) ? stack_word[:id_len] : alloc::alloc_array(tmem, char, id_len);
+				for (sz k = 0; k < id_len; k++) word_chars[k] = buf.get(start + id_start + k);
+
+				sz p = idx;
+				while (p < len && (buf.get(start + p) == ' ' || buf.get(start + p) == '\t')) p++;
+				bool is_fn = (p < len && buf.get(start + p) == '(');
+
+				TokenType t = match_word_token((String)word_chars, is_fn);
+				for (sz k = id_start; k < idx; k++) out_tokens[k] = t;
+
+			// Delimiters & Operators
+			default:
+				switch (c)
+				{
+					case ';':
+					case ',':
+					case '.':
+					case '{':
+					case '}':
+					case '(':
+					case ')':
+					case '[':
+					case ']':
+						out_tokens[idx++] = DELIMITER;
+					default:
+						out_tokens[idx++] = OPERATOR;
+				}
+		}
+	}
+	return state;
+}
+
 // 5x8 Monospace Bitmap Font
 enum FontGlyph : (Char32 ch, ulong bitmap)
 {
 	// Uppercase Glyphs
-	A { 'A', 0b01110_10001_10001_11111_10001_10001_10001_00000 },
-	B { 'B', 0b11110_10001_10001_11110_10001_10001_11110_00000 },
-	C { 'C', 0b01111_10000_10000_10000_10000_10000_01111_00000 },
-	D { 'D', 0b11110_10001_10001_10001_10001_10001_11110_00000 },
-	E { 'E', 0b11111_10000_10000_11110_10000_10000_11111_00000 },
-	F { 'F', 0b11111_10000_10000_11110_10000_10000_10000_00000 },
-	G { 'G', 0b01111_10000_10000_10111_10001_10001_01111_00000 },
-	H { 'H', 0b10001_10001_10001_11111_10001_10001_10001_00000 },
-	I { 'I', 0b01110_00100_00100_00100_00100_00100_01110_00000 },
-	J { 'J', 0b00111_00010_00010_00010_00010_10010_01100_00000 },
-	K { 'K', 0b10001_10010_10100_11000_10100_10010_10001_00000 },
-	L { 'L', 0b10000_10000_10000_10000_10000_10000_11111_00000 },
-	M { 'M', 0b10001_11011_10101_10101_10001_10001_10001_00000 },
-	N { 'N', 0b10001_11001_10101_10011_10001_10001_10001_00000 },
-	O { 'O', 0b01110_10001_10001_10001_10001_10001_01110_00000 },
-	P { 'P', 0b11110_10001_10001_11110_10000_10000_10000_00000 },
-	Q { 'Q', 0b01110_10001_10001_10001_10101_10010_01101_00000 },
-	R { 'R', 0b11110_10001_10001_11110_10100_10010_10001_00000 },
-	S { 'S', 0b01111_10000_10000_01110_00001_00001_11110_00000 },
-	T { 'T', 0b11111_00100_00100_00100_00100_00100_00100_00000 },
-	U { 'U', 0b10001_10001_10001_10001_10001_10001_01110_00000 },
-	V { 'V', 0b10001_10001_10001_10001_10001_01010_00100_00000 },
-	W { 'W', 0b10001_10001_10001_10101_10101_11011_10001_00000 },
-	X { 'X', 0b10001_10001_01010_00100_01010_10001_10001_00000 },
-	Y { 'Y', 0b10001_10001_01010_00100_00100_00100_00100_00000 },
-	Z { 'Z', 0b11111_00001_00010_00100_01000_10000_11111_00000 },
+	A { 'A', 0b01110_10001_10001_11111_10001_10001_10001_00000UL },
+	B { 'B', 0b11110_10001_10001_11110_10001_10001_11110_00000UL },
+	C { 'C', 0b01111_10000_10000_10000_10000_10000_01111_00000UL },
+	D { 'D', 0b11110_10001_10001_10001_10001_10001_11110_00000UL },
+	E { 'E', 0b11111_10000_10000_11110_10000_10000_11111_00000UL },
+	F { 'F', 0b11111_10000_10000_11110_10000_10000_10000_00000UL },
+	G { 'G', 0b01111_10000_10000_10111_10001_10001_01111_00000UL },
+	H { 'H', 0b10001_10001_10001_11111_10001_10001_10001_00000UL },
+	I { 'I', 0b01110_00100_00100_00100_00100_00100_01110_00000UL },
+	J { 'J', 0b00111_00010_00010_00010_00010_10010_01100_00000UL },
+	K { 'K', 0b10001_10010_10100_11000_10100_10010_10001_00000UL },
+	L { 'L', 0b10000_10000_10000_10000_10000_10000_11111_00000UL },
+	M { 'M', 0b10001_11011_10101_10101_10001_10001_10001_00000UL },
+	N { 'N', 0b10001_11001_10101_10011_10001_10001_10001_00000UL },
+	O { 'O', 0b01110_10001_10001_10001_10001_10001_01110_00000UL },
+	P { 'P', 0b11110_10001_10001_11110_10000_10000_10000_00000UL },
+	Q { 'Q', 0b01110_10001_10001_10001_10101_10010_01101_00000UL },
+	R { 'R', 0b11110_10001_10001_11110_10100_10010_10001_00000UL },
+	S { 'S', 0b01111_10000_10000_01110_00001_00001_11110_00000UL },
+	T { 'T', 0b11111_00100_00100_00100_00100_00100_00100_00000UL },
+	U { 'U', 0b10001_10001_10001_10001_10001_10001_01110_00000UL },
+	V { 'V', 0b10001_10001_10001_10001_10001_01010_00100_00000UL },
+	W { 'W', 0b10001_10001_10001_10101_10101_11011_10001_00000UL },
+	X { 'X', 0b10001_10001_01010_00100_01010_10001_10001_00000UL },
+	Y { 'Y', 0b10001_10001_01010_00100_00100_00100_00100_00000UL },
+	Z { 'Z', 0b11111_00001_00010_00100_01000_10000_11111_00000UL },
 
 	// Lowercase Glyphs
-	LOWER_A { 'a', 0b00000_00000_01111_00001_01111_10001_01111_00000 },
-	LOWER_B { 'b', 0b10000_10000_11110_10001_10001_10001_11110_00000 },
-	LOWER_C { 'c', 0b00000_00000_01111_10000_10000_10000_01111_00000 },
-	LOWER_D { 'd', 0b00001_00001_01111_10001_10001_10001_01111_00000 },
-	LOWER_E { 'e', 0b00000_00000_01111_10001_11111_10000_01111_00000 },
-	LOWER_F { 'f', 0b00110_01001_01000_11110_01000_01000_01000_00000 },
-	LOWER_G { 'g', 0b00000_00000_01111_10001_10001_01111_00001_11110 },
-	LOWER_H { 'h', 0b10000_10000_11110_10001_10001_10001_10001_00000 },
-	LOWER_I { 'i', 0b00100_00000_01100_00100_00100_00100_01110_00000 },
-	LOWER_J { 'j', 0b00010_00000_00010_00010_00010_00010_10010_01100 },
-	LOWER_K { 'k', 0b10000_10000_10010_10100_11000_10100_10010_00000 },
-	LOWER_L { 'l', 0b01100_00100_00100_00100_00100_00100_01110_00000 },
-	LOWER_M { 'm', 0b00000_00000_11010_10101_10101_10101_10101_00000 },
-	LOWER_N { 'n', 0b00000_00000_11110_10001_10001_10001_10001_00000 },
-	LOWER_O { 'o', 0b00000_00000_01110_10001_10001_10001_01110_00000 },
-	LOWER_P { 'p', 0b00000_00000_11110_10001_10001_11110_10000_10000 },
-	LOWER_Q { 'q', 0b00000_00000_01111_10001_10001_01111_00001_00001 },
-	LOWER_R { 'r', 0b00000_00000_10110_11001_10000_10000_10000_00000 },
-	LOWER_S { 's', 0b00000_00000_01111_10000_01110_00001_11110_00000 },
-	LOWER_T { 't', 0b00100_00100_11111_00100_00100_00100_00011_00000 },
-	LOWER_U { 'u', 0b00000_00000_10001_10001_10001_10011_01101_00000 },
-	LOWER_V { 'v', 0b00000_00000_10001_10001_10001_01010_00100_00000 },
-	LOWER_W { 'w', 0b00000_00000_10001_10001_10101_10101_01010_00000 },
-	LOWER_X { 'x', 0b00000_00000_10001_01010_00100_01010_10001_00000 },
-	LOWER_Y { 'y', 0b00000_00000_10001_10001_10001_01111_00001_11110 },
-	LOWER_Z { 'z', 0b00000_00000_11111_00010_00100_01000_11111_00000 },
+	LOWER_A { 'a', 0b00000_00000_01111_00001_01111_10001_01111_00000UL },
+	LOWER_B { 'b', 0b10000_10000_11110_10001_10001_10001_11110_00000UL },
+	LOWER_C { 'c', 0b00000_00000_01111_10000_10000_10000_01111_00000UL },
+	LOWER_D { 'd', 0b00001_00001_01111_10001_10001_10001_01111_00000UL },
+	LOWER_E { 'e', 0b00000_00000_01111_10001_11111_10000_01111_00000UL },
+	LOWER_F { 'f', 0b00110_01001_01000_11110_01000_01000_01000_00000UL },
+	LOWER_G { 'g', 0b00000_00000_01111_10001_10001_01111_00001_11110UL },
+	LOWER_H { 'h', 0b10000_10000_11110_10001_10001_10001_10001_00000UL },
+	LOWER_I { 'i', 0b00100_00000_01100_00100_00100_00100_01110_00000UL },
+	LOWER_J { 'j', 0b00010_00000_00010_00010_00010_00010_10010_01100UL },
+	LOWER_K { 'k', 0b10000_10000_10010_10100_11000_10100_10010_00000UL },
+	LOWER_L { 'l', 0b01100_00100_00100_00100_00100_00100_01110_00000UL },
+	LOWER_M { 'm', 0b00000_00000_11010_10101_10101_10101_10101_00000UL },
+	LOWER_N { 'n', 0b00000_00000_11110_10001_10001_10001_10001_00000UL },
+	LOWER_O { 'o', 0b00000_00000_01110_10001_10001_10001_01110_00000UL },
+	LOWER_P { 'p', 0b00000_00000_11110_10001_10001_11110_10000_10000UL },
+	LOWER_Q { 'q', 0b00000_00000_01111_10001_10001_01111_00001_00001UL },
+	LOWER_R { 'r', 0b00000_00000_10110_11001_10000_10000_10000_00000UL },
+	LOWER_S { 's', 0b00000_00000_01111_10000_01110_00001_11110_00000UL },
+	LOWER_T { 't', 0b00100_00100_11111_00100_00100_00100_00011_00000UL },
+	LOWER_U { 'u', 0b00000_00000_10001_10001_10001_10011_01101_00000UL },
+	LOWER_V { 'v', 0b00000_00000_10001_10001_10001_01010_00100_00000UL },
+	LOWER_W { 'w', 0b00000_00000_10001_10001_10101_10101_01010_00000UL },
+	LOWER_X { 'x', 0b00000_00000_10001_01010_00100_01010_10001_00000UL },
+	LOWER_Y { 'y', 0b00000_00000_10001_10001_10001_01111_00001_11110UL },
+	LOWER_Z { 'z', 0b00000_00000_11111_00010_00100_01000_11111_00000UL },
 
 	// Numbers & Punctuation
-	ZERO        { '0', 0b01110_10001_10011_10101_11001_10001_01110_00000 },
-	ONE         { '1', 0b00100_01100_00100_00100_00100_00100_01110_00000 },
-	TWO         { '2', 0b01110_10001_00001_00010_00100_01000_11111_00000 },
-	THREE       { '3', 0b11111_00010_00100_00010_00001_10001_01110_00000 },
-	FOUR        { '4', 0b00010_00110_01010_10010_11111_00010_00010_00000 },
-	FIVE        { '5', 0b11111_10000_11110_00001_00001_10001_01110_00000 },
-	SIX         { '6', 0b00110_01000_10000_11110_10001_10001_01110_00000 },
-	SEVEN       { '7', 0b11111_00001_00010_00100_01000_01000_01000_00000 },
-	EIGHT       { '8', 0b01110_10001_10001_01110_10001_10001_01110_00000 },
-	NINE        { '9', 0b01110_10001_10001_01111_00001_00010_01100_00000 },
-	SPACE       { ' ', 0b00000_00000_00000_00000_00000_00000_00000_00000 },
-	DOT         { '.', 0b00000_00000_00000_00000_00000_00110_00110_00000 },
-	COMMA       { ',', 0b00000_00000_00000_00000_00000_00110_00100_01000 },
-	EXCLAMATION { '!', 0b00100_00100_00100_00100_00100_00000_00100_00000 },
-	QUESTION    { '?', 0b01110_10001_00001_00010_00100_00000_00100_00000 },
-	COLON       { ':', 0b00000_00000_00110_00110_00000_00110_00110_00000 },
-	SEMICOLON   { ';', 0b00000_00000_00110_00110_00000_00110_00100_01000 },
-	QUOTE       { '"', 0b01010_01010_01010_00000_00000_00000_00000_00000 },
-	APOSTROPHE  { '\'', 0b00100_00100_00100_00000_00000_00000_00000_00000 },
-	HYPHEN      { '-', 0b00000_00000_00000_11111_00000_00000_00000_00000 },
-	PLUS        { '+', 0b00000_00100_00100_11111_00100_00100_00000_00000 },
-	EQUALS      { '=', 0b00000_00000_11111_00000_11111_00000_00000_00000 },
-	LESS        { '<', 0b00010_00100_01000_10000_01000_00100_00010_00000 },
-	GREATER     { '>', 0b01000_00100_00010_00001_00010_00100_01000_00000 },
-	LPAREN      { '(', 0b00010_00100_01000_01000_01000_00100_00010_00000 },
-	RPAREN      { ')', 0b01000_00100_00010_00010_00010_00100_01000_00000 },
-	LBRACKET    { '[', 0b01110_01000_01000_01000_01000_01000_01110_00000 },
-	RBRACKET    { ']', 0b01110_00010_00010_00010_00010_00010_01110_00000 },
-	LBRACE      { '{', 0b00011_00100_00100_01000_00100_00100_00011_00000 },
-	RBRACE      { '}', 0b11000_00100_00100_00010_00100_00100_11000_00000 },
-	SLASH       { '/', 0b00001_00010_00010_00100_00100_01000_01000_10000 },
-	BACKSLASH   { '\\', 0b10000_01000_01000_00100_00100_00010_00010_00001 },
-	UNDERSCORE  { '_', 0b00000_00000_00000_00000_00000_00000_00000_11111 },
-	ASTERISK    { '*', 0b00000_01010_00100_11111_00100_01010_00000_00000 },
-	HASH        { '#', 0b01010_01010_11111_01010_11111_01010_01010_00000 },
-	AT          { '@', 0b01110_10001_10111_10101_10110_10000_01111_00000 },
-	AMPERSAND   { '&', 0b01100_10010_01100_01010_10001_10010_01101_00000 },
-	TILDE       { '~', 0b00000_00000_01101_10010_00000_00000_00000_00000 },
-	BACKTICK    { '`', 0b01000_00100_00010_00000_00000_00000_00000_00000 },
-	DOLLAR      { '$', 0b00100_01111_10100_01110_00101_11110_00100_00000 },
-	PERCENT     { '%', 0b11000_11001_00010_00100_01000_10011_00011_00000 },
-	CARET       { '^', 0b00100_01010_10001_00000_00000_00000_00000_00000 },
-	PIPE        { '|', 0b00100_00100_00100_00100_00100_00100_00100_00000 },
-	ACUTE       { '´', 0b00010_00100_01000_00000_00000_00000_00000_00000 },
+	ZERO        { '0', 0b01110_10001_10011_10101_11001_10001_01110_00000UL },
+	ONE         { '1', 0b00100_01100_00100_00100_00100_00100_01110_00000UL },
+	TWO         { '2', 0b01110_10001_00001_00010_00100_01000_11111_00000UL },
+	THREE       { '3', 0b11111_00010_00100_00010_00001_10001_01110_00000UL },
+	FOUR        { '4', 0b00010_00110_01010_10010_11111_00010_00010_00000UL },
+	FIVE        { '5', 0b11111_10000_11110_00001_00001_10001_01110_00000UL },
+	SIX         { '6', 0b00110_01000_10000_11110_10001_10001_01110_00000UL },
+	SEVEN       { '7', 0b11111_00001_00010_00100_01000_01000_01000_00000UL },
+	EIGHT       { '8', 0b01110_10001_10001_01110_10001_10001_01110_00000UL },
+	NINE        { '9', 0b01110_10001_10001_01111_00001_00010_01100_00000UL },
+	SPACE       { ' ', 0b00000_00000_00000_00000_00000_00000_00000_00000UL },
+	DOT         { '.', 0b00000_00000_00000_00000_00000_00110_00110_00000UL },
+	COMMA       { ',', 0b00000_00000_00000_00000_00000_00110_00100_01000UL },
+	EXCLAMATION { '!', 0b00100_00100_00100_00100_00100_00000_00100_00000UL },
+	QUESTION    { '?', 0b01110_10001_00001_00010_00100_00000_00100_00000UL },
+	COLON       { ':', 0b00000_00000_00110_00110_00000_00110_00110_00000UL },
+	SEMICOLON   { ';', 0b00000_00000_00110_00110_00000_00110_00100_01000UL },
+	QUOTE       { '"', 0b01010_01010_01010_00000_00000_00000_00000_00000UL },
+	APOSTROPHE  { '\'', 0b00100_00100_00100_00000_00000_00000_00000_00000UL },
+	HYPHEN      { '-', 0b00000_00000_00000_11111_00000_00000_00000_00000UL },
+	PLUS        { '+', 0b00000_00100_00100_11111_00100_00100_00000_00000UL },
+	EQUALS      { '=', 0b00000_00000_11111_00000_11111_00000_00000_00000UL },
+	LESS        { '<', 0b00010_00100_01000_10000_01000_00100_00010_00000UL },
+	GREATER     { '>', 0b01000_00100_00010_00001_00010_00100_01000_00000UL },
+	LPAREN      { '(', 0b00010_00100_01000_01000_01000_00100_00010_00000UL },
+	RPAREN      { ')', 0b01000_00100_00010_00010_00010_00100_01000_00000UL },
+	LBRACKET    { '[', 0b01110_01000_01000_01000_01000_01000_01110_00000UL },
+	RBRACKET    { ']', 0b01110_00010_00010_00010_00010_00010_01110_00000UL },
+	LBRACE      { '{', 0b00011_00100_00100_01000_00100_00100_00011_00000UL },
+	RBRACE      { '}', 0b11000_00100_00100_00010_00100_00100_11000_00000UL },
+	SLASH       { '/', 0b00001_00010_00010_00100_00100_01000_01000_10000UL },
+	BACKSLASH   { '\\', 0b10000_01000_01000_00100_00100_00010_00010_00001UL },
+	UNDERSCORE  { '_', 0b00000_00000_00000_00000_00000_00000_00000_11111UL },
+	ASTERISK    { '*', 0b00000_01010_00100_11111_00100_01010_00000_00000UL },
+	HASH        { '#', 0b01010_01010_11111_01010_11111_01010_01010_00000UL },
+	AT          { '@', 0b01110_10001_10111_10101_10110_10000_01111_00000UL },
+	AMPERSAND   { '&', 0b01100_10010_01100_01010_10001_10010_01101_00000UL },
+	TILDE       { '~', 0b00000_00000_01101_10010_00000_00000_00000_00000UL },
+	BACKTICK    { '`', 0b01000_00100_00010_00000_00000_00000_00000_00000UL },
+	DOLLAR      { '$', 0b00100_01111_10100_01110_00101_11110_00100_00000UL },
+	PERCENT     { '%', 0b11000_11001_00010_00100_01000_10011_00011_00000UL },
+	CARET       { '^', 0b00100_01010_10001_00000_00000_00000_00000_00000UL },
+	PIPE        { '|', 0b00100_00100_00100_00100_00100_00100_00100_00000UL },
+	ACUTE       { '´', 0b00010_00100_01000_00000_00000_00000_00000_00000UL },
 
 	// Accented Symbols
-	N_TILDE       { 'Ñ', 0b01100_10001_11001_10101_10011_10001_10001_00000 },
-	LOWER_N_TILDE { 'ñ', 0b01100_00000_11110_10001_10001_10001_10001_00000 },
+	N_TILDE       { 'Ñ', 0b01100_10001_11001_10101_10011_10001_10001_00000UL },
+	LOWER_N_TILDE { 'ñ', 0b01100_00000_11110_10001_10001_10001_10001_00000UL },
 
-	UNKNOWN { '\0', 0b11111_10001_10101_10101_10101_10001_11111_00000 }
+	UNKNOWN { '\0', 0b11111_10001_10101_10101_10101_10001_11111_00000UL }
 }
 
 fn ulong get_char_bitmap(Char32 c) => runtime::@enum_lookup(FontGlyph, "ch", c).bitmap ?? FontGlyph.UNKNOWN.bitmap;
@@ -228,7 +467,7 @@ fn void draw_text(String str, int px, int py, int scale, RLColor tint)
 	}
 }
 
-fn bool is_word_char(char c)   => c.is_alnum() || c == '_';
+fn bool is_word_char(char c) => c.is_alnum() || c == '_';
 fn bool is_symbol_char(char c) => !is_word_char(c) && c != '\n' && c != '\r' && c != ' ';
 
 struct TextRange
@@ -250,6 +489,7 @@ struct Editor
 {
 	GapBuffer buffer;
 	List{sz} line_starts;
+	List{LineState} line_states;
 	sz cursor_pos;
 	sz sel_anchor;
 	int target_col;
@@ -269,6 +509,40 @@ struct Editor
 	bool cursor_visible;
 	double last_click_time;
 	Vec2 last_click_pos;
+
+	// Features State
+	String current_filepath;
+	bool is_file_specified;
+	bool is_modified;
+	bool should_exit;
+	bool goto_modal_open;
+	char[16] goto_input_buf;
+	int goto_input_len;
+	float page_hold_timer;
+	float save_msg_timer;
+}
+
+fn void Editor.recompute_line_states(&self)
+{
+	if (self.line_states.entries == null)
+	{
+		self.line_states.init(mem);
+	}
+	self.line_states.clear();
+	int total_lines         = (int)self.line_starts.len();
+	LineState current_state = NORMAL;
+	TokenType[1024] dummy_buf;
+
+	for (int i = 0; i < total_lines; i++)
+	{
+		sz start        = self.get_line_start_of_line(i);
+		sz end          = self.get_line_end(start);
+		sz len          = end - start;
+		TokenType[] buf = (len <= 1024) ? dummy_buf[:len] : alloc::alloc_array(tmem, TokenType, len);
+
+		current_state = lex_line(&self.buffer, start, end, current_state, buf);
+		self.line_states.push(current_state);
+	}
 }
 
 fn void Editor.rebuild_line_index(&self)
@@ -298,6 +572,8 @@ fn void Editor.rebuild_line_index(&self)
 			self.line_starts.push(pref_len + j + 1);
 		}
 	}
+
+	self.recompute_line_states();
 }
 
 fn void Editor.clear_undo_stack(&self)
@@ -314,23 +590,37 @@ fn void Editor.load_text(&self, String str)
 	self.clear_undo_stack();
 	self.buffer.load_bytes((char[])str);
 	self.rebuild_line_index();
-	self.cursor_pos = self.buffer.len();
-	self.sel_anchor = self.cursor_pos;
+	self.cursor_pos = 0;
+	self.sel_anchor = 0;
 	self.target_col = 0;
 	self.scroll_line = 0;
 	self.scroll_col = 0;
 	self.undo_stack.init(mem);
+	self.is_modified = false;
 }
 
 fn void Editor.save_undo_state(&self)
 {
-	if (self.buffer.len() > 50 * 1024 * 1024) return;
+	sz buf_len = self.buffer.len();
+	if (buf_len > 50 * 1024 * 1024) return; // Skip undo for files larger than 50MB
 
-	if (self.undo_stack.len() >= MAX_UNDO_STATES)
+	// Dynamically cap undo states for large documents to preserve memory
+	sz max_snapshots = MAX_UNDO_STATES;
+	switch
 	{
-		UndoSnapshot* old = self.undo_stack.pop_first()!!;
-		if (old.text.len > 0) mem::free(old.text.ptr);
-		mem::free(old);
+		case buf_len > 10 * 1024 * 1024:
+			max_snapshots = 4;
+		case buf_len > 2 * 1024 * 1024:
+			max_snapshots = 8;
+	}
+
+	while (self.undo_stack.len() >= max_snapshots)
+	{
+		if (try old = self.undo_stack.pop_first())
+		{
+			if (old.text.len > 0) mem::free(old.text.ptr);
+			mem::free(old);
+		}
 	}
 
 	UndoSnapshot* snap = mem::new(UndoSnapshot);
@@ -351,6 +641,7 @@ fn void Editor.undo(&self)
 		self.target_col = self.get_col(self.cursor_pos);
 		if (snap.text.len > 0) mem::free(snap.text.ptr);
 		mem::free(snap);
+		self.is_modified = true;
 	}
 }
 
@@ -401,6 +692,7 @@ fn void Editor.paste_clipboard(&self)
 	self.cursor_pos += text.len;
 	self.sel_anchor = self.cursor_pos;
 	self.target_col = self.get_col(self.cursor_pos);
+	self.is_modified = true;
 }
 
 fn int Editor.get_line(&self, sz pos)
@@ -440,7 +732,6 @@ fn int Editor.get_col(&self, sz pos)
 				col = 0;
 			case '\t':
 				int tab_spaces = TAB_SIZE_SPACES - (col % TAB_SIZE_SPACES);
-				if (tab_spaces <= 0) tab_spaces = TAB_SIZE_SPACES;
 				col += tab_spaces;
 			case '\r':
 				break;
@@ -495,7 +786,6 @@ fn sz Editor.get_pos_from_line_col(&self, int target_line, int target_col)
 		{
 			case '\t':
 				int tab_spaces = TAB_SIZE_SPACES - (col % TAB_SIZE_SPACES);
-				if (tab_spaces <= 0) tab_spaces = TAB_SIZE_SPACES;
 				col += tab_spaces;
 			case '\r':
 				break;
@@ -508,15 +798,15 @@ fn sz Editor.get_pos_from_line_col(&self, int target_line, int target_col)
 	return actual_pos;
 }
 
-fn sz Editor.get_pos_from_mouse(&self, Vec2 mpos)
+fn sz Editor.get_pos_from_mouse(&self, Vec2 mpos, int text_start_x, int text_start_y)
 {
-	if (mpos.x < TEXT_START_X || mpos.y < TEXT_START_Y)
+	if (mpos.x < text_start_x || mpos.y < text_start_y)
 	{
-		if (mpos.y < TEXT_START_Y) return 0;
+		if (mpos.y < text_start_y) return 0;
 	}
-	int rel_y = (int)(mpos.y - TEXT_START_Y);
+	int rel_y = (int)(mpos.y - text_start_y);
 	int line  = rel_y / LINE_HEIGHT + self.scroll_line;
-	int rel_x = (int)(mpos.x - TEXT_START_X + CHAR_WIDTH / 2);
+	int rel_x = (int)(mpos.x - text_start_x + CHAR_WIDTH / 2);
 	int col   = math::max(0, rel_x / CHAR_WIDTH + self.scroll_col);
 
 	return self.get_pos_from_line_col(line, col);
@@ -590,11 +880,12 @@ fn void Editor.delete_selection(&self)
 	self.cursor_pos = start;
 	self.sel_anchor = start;
 	self.target_col = self.get_col(self.cursor_pos);
+	self.is_modified = true;
 }
 
 fn void Editor.insert_codepoint(&self, Char32 c)
 {
-	// Expand tab to spaces (no tab glyph in font)
+	// Expand tab to spaces
 	if (c == '\t')
 	{
 		for (int i = 0; i < TAB_SIZE_SPACES; i++) self.insert_codepoint(' ');
@@ -613,6 +904,7 @@ fn void Editor.insert_codepoint(&self, Char32 c)
 	self.cursor_pos += len;
 	self.sel_anchor = self.cursor_pos;
 	self.target_col = self.get_col(self.cursor_pos);
+	self.is_modified = true;
 }
 
 fn void Editor.handle_backspace(&self)
@@ -634,6 +926,7 @@ fn void Editor.handle_backspace(&self)
 		self.cursor_pos = prev;
 		self.sel_anchor = self.cursor_pos;
 		self.target_col = self.get_col(self.cursor_pos);
+		self.is_modified = true;
 	}
 }
 
@@ -653,6 +946,7 @@ fn void Editor.handle_delete(&self)
 		sz next = self.get_next_char_pos(self.cursor_pos);
 		self.buffer.delete_range(self.cursor_pos, next);
 		self.rebuild_line_index();
+		self.is_modified = true;
 	}
 }
 
@@ -665,25 +959,23 @@ fn void Editor.reset_cursor_blink(&self)
 fn void Editor.ensure_cursor_visible(&self, int visible_lines, int visible_cols)
 {
 	int cursor_line = self.get_line(self.cursor_pos);
-	if (cursor_line < self.scroll_line)
+	switch
 	{
-		self.scroll_line = cursor_line;
-	}
-	else if (cursor_line >= self.scroll_line + visible_lines)
-	{
-		self.scroll_line = cursor_line - visible_lines + 1;
+		case cursor_line < self.scroll_line:
+			self.scroll_line = cursor_line;
+		case cursor_line >= self.scroll_line + visible_lines:
+			self.scroll_line = cursor_line - visible_lines + 1;
 	}
 
 	self.scroll_line = math::clamp(self.scroll_line, 0, math::max(0, self.get_total_lines() - 1));
 
 	int cursor_col = self.get_col(self.cursor_pos);
-	if (cursor_col < self.scroll_col)
+	switch
 	{
-		self.scroll_col = cursor_col;
-	}
-	else if (cursor_col >= self.scroll_col + visible_cols)
-	{
-		self.scroll_col = cursor_col - visible_cols + 1;
+		case cursor_col < self.scroll_col:
+			self.scroll_col = cursor_col;
+		case cursor_col >= self.scroll_col + visible_cols:
+			self.scroll_col = cursor_col - visible_cols + 1;
 	}
 
 	if (self.scroll_col < 0)
@@ -697,78 +989,128 @@ fn bool key_pressed_or_repeat(RLKeyboardKey key)
 	return rl::is_key_pressed(key) || rl::is_key_pressed_repeat(key);
 }
 
-fn void Editor.poll_raylib_input(&self, int visible_lines, int visible_cols)
+fn void Editor.poll_raylib_input(
+	&self,
+	int visible_lines,
+	int visible_cols,
+	int text_start_x,
+	int text_start_y,
+	float dt
+)
 {
 	sz prev_pos = self.cursor_pos;
 	sz prev_len = self.buffer.len();
 
 	self.shift_held = rl::is_key_down(LEFT_SHIFT) || rl::is_key_down(RIGHT_SHIFT);
-	self.ctrl_held  = rl::is_key_down(LEFT_CONTROL) || rl::is_key_down(RIGHT_CONTROL);
+	self.ctrl_held = rl::is_key_down(LEFT_CONTROL) || rl::is_key_down(RIGHT_CONTROL);
+
+	// Go-To-Line Modal Input Handler
+	if (self.goto_modal_open)
+	{
+		if (rl::is_key_pressed(ESCAPE))
+		{
+			self.goto_modal_open = false;
+		}
+		if (rl::is_key_pressed(ENTER) || rl::is_key_pressed(KP_ENTER))
+		{
+			int target_line = 1;
+			if (self.goto_input_len > 0)
+			{
+				target_line = string::to_integer{int}((String)self.goto_input_buf[:self.goto_input_len]) ?? 1;
+			}
+			int tot = self.get_total_lines();
+			target_line = math::clamp(target_line, 1, tot);
+			self.cursor_pos = self.get_pos_from_line_col(target_line - 1, 0);
+			self.sel_anchor = self.cursor_pos;
+			self.target_col = 0;
+			self.ensure_cursor_visible(visible_lines, visible_cols);
+			self.goto_modal_open = false;
+		}
+		if (key_pressed_or_repeat(BACKSPACE))
+		{
+			if (self.goto_input_len > 0)
+			{
+				self.goto_input_len--;
+				self.goto_input_buf[self.goto_input_len] = '\0';
+			}
+		}
+
+		int codepoint = rl::get_char_pressed();
+		while (codepoint > 0)
+		{
+			if (codepoint >= '0' && codepoint <= '9' && self.goto_input_len < 15)
+			{
+				self.goto_input_buf[self.goto_input_len++] = (char)codepoint;
+				self.goto_input_buf[self.goto_input_len] = '\0';
+			}
+			codepoint = rl::get_char_pressed();
+		}
+		return;
+	}
 
 	RLVector2 mouse_v = rl::get_mouse_position();
 	Vec2 mouse_pos    = { mouse_v.x, mouse_v.y };
 
-	if (rl::is_mouse_button_pressed(LEFT))
+	switch
 	{
-		self.mouse_down = true;
-		double now     = rl::get_time();
-		sz clicked_pos = self.get_pos_from_mouse(mouse_pos);
-		float dx       = mouse_pos.x - self.last_click_pos.x;
-		float dy       = mouse_pos.y - self.last_click_pos.y;
-		float dist_sq  = dx * dx + dy * dy;
+		case rl::is_mouse_button_pressed(LEFT):
+			self.mouse_down = true;
+			double now = rl::get_time();
+			sz clicked_pos = self.get_pos_from_mouse(mouse_pos, text_start_x, text_start_y);
+			float dx = mouse_pos.x - self.last_click_pos.x;
+			float dy = mouse_pos.y - self.last_click_pos.y;
+			float dist_sq = dx * dx + dy * dy;
 
-		if (now - self.last_click_time < DOUBLE_CLICK_TIME && dist_sq < 100.0f)
-		{
-			TextRange bounds = self.get_word_bounds(clicked_pos);
-
-			self.word_selecting = true;
-			self.word_sel_anchor_start = bounds.start;
-			self.word_sel_anchor_end = bounds.end;
-
-			self.sel_anchor = bounds.start;
-			self.cursor_pos = bounds.end;
-			self.target_col = self.get_col(self.cursor_pos);
-			self.last_click_time = 0.0;
-		}
-		else
-		{
-			self.word_selecting = false;
-			self.cursor_pos = clicked_pos;
-			if (!self.shift_held) self.sel_anchor = self.cursor_pos;
-			self.target_col = self.get_col(self.cursor_pos);
-			self.last_click_time = now;
-			self.last_click_pos = mouse_pos;
-		}
-	}
-	else if (self.mouse_down && rl::is_mouse_button_down(LEFT))
-	{
-		sz cur_pos = self.get_pos_from_mouse(mouse_pos);
-		if (self.word_selecting)
-		{
-			TextRange cur_bounds = self.get_word_bounds(cur_pos);
-
-			if (cur_pos >= self.word_sel_anchor_start)
+			if (now - self.last_click_time < DOUBLE_CLICK_TIME && dist_sq < 100.0f)
 			{
-				self.sel_anchor = self.word_sel_anchor_start;
-				self.cursor_pos = cur_bounds.end;
+				TextRange bounds = self.get_word_bounds(clicked_pos);
+
+				self.word_selecting = true;
+				self.word_sel_anchor_start = bounds.start;
+				self.word_sel_anchor_end = bounds.end;
+
+				self.sel_anchor = bounds.start;
+				self.cursor_pos = bounds.end;
+				self.target_col = self.get_col(self.cursor_pos);
+				self.last_click_time = 0.0;
 			}
 			else
 			{
-				self.sel_anchor = self.word_sel_anchor_end;
-				self.cursor_pos = cur_bounds.start;
+				self.word_selecting = false;
+				self.cursor_pos = clicked_pos;
+				if (!self.shift_held) self.sel_anchor = self.cursor_pos;
+				self.target_col = self.get_col(self.cursor_pos);
+				self.last_click_time = now;
+				self.last_click_pos = mouse_pos;
 			}
-			self.target_col = self.get_col(self.cursor_pos);
-		}
-		else
-		{
-			self.cursor_pos = cur_pos;
-			self.target_col = self.get_col(self.cursor_pos);
-		}
-	}
-	else if (rl::is_mouse_button_released(LEFT))
-	{
-		self.mouse_down = false;
-		self.word_selecting = false;
+
+		case self.mouse_down && rl::is_mouse_button_down(LEFT):
+			sz cur_pos = self.get_pos_from_mouse(mouse_pos, text_start_x, text_start_y);
+			if (self.word_selecting)
+			{
+				TextRange cur_bounds = self.get_word_bounds(cur_pos);
+
+				if (cur_pos >= self.word_sel_anchor_start)
+				{
+					self.sel_anchor = self.word_sel_anchor_start;
+					self.cursor_pos = cur_bounds.end;
+				}
+				else
+				{
+					self.sel_anchor = self.word_sel_anchor_end;
+					self.cursor_pos = cur_bounds.start;
+				}
+				self.target_col = self.get_col(self.cursor_pos);
+			}
+			else
+			{
+				self.cursor_pos = cur_pos;
+				self.target_col = self.get_col(self.cursor_pos);
+			}
+
+		case rl::is_mouse_button_released(LEFT):
+			self.mouse_down = false;
+			self.word_selecting = false;
 	}
 
 	float wheel = rl::get_mouse_wheel_move();
@@ -782,22 +1124,22 @@ fn void Editor.poll_raylib_input(&self, int visible_lines, int visible_cols)
 		{
 			int total_lines = self.get_total_lines();
 			self.scroll_line = math::clamp(
-				self.scroll_line - (int)wheel * VERTICAL_SCROLL_STEP, 
-				0, 
+				self.scroll_line - (int)wheel * VERTICAL_SCROLL_STEP,
+				0,
 				math::max(0, total_lines - 1)
 			);
 		}
 	}
 
 	// Typed characters
-	int codepoint = rl::get_char_pressed();
-	while (codepoint > 0)
+	int cp = rl::get_char_pressed();
+	while (cp > 0)
 	{
 		if (!self.ctrl_held)
 		{
-			self.insert_codepoint((Char32)codepoint);
+			self.insert_codepoint((Char32)cp);
 		}
-		codepoint = rl::get_char_pressed();
+		cp = rl::get_char_pressed();
 	}
 
 	// Shortcuts & Navigation
@@ -812,7 +1154,30 @@ fn void Editor.poll_raylib_input(&self, int visible_lines, int visible_cols)
 		if (rl::is_key_pressed(C)) self.copy_selection();
 		if (rl::is_key_pressed(X)) self.cut_selection();
 		if (rl::is_key_pressed(V)) self.paste_clipboard();
-		if (rl::is_key_pressed(Z)) self.undo();
+		if (key_pressed_or_repeat(Z)) self.undo();
+		if (rl::is_key_pressed(S))
+		{
+			if (self.current_filepath.len > 0)
+			{
+				String text = self.buffer.to_tstring();
+				if (catch file::save(self.current_filepath, (char[])text))
+				{
+					// Save failed
+				}
+				else
+				{
+					self.is_modified = false;
+					self.save_msg_timer = 2.0f;
+				}
+			}
+		}
+		if (rl::is_key_pressed(Q)) self.should_exit = true;
+		if (rl::is_key_pressed(G))
+		{
+			self.goto_modal_open = true;
+			self.goto_input_len = 0;
+			self.goto_input_buf[0] = '\0';
+		}
 	}
 
 	if (rl::is_key_pressed(ESCAPE)) self.sel_anchor = self.cursor_pos;
@@ -821,10 +1186,23 @@ fn void Editor.poll_raylib_input(&self, int visible_lines, int visible_cols)
 	if (key_pressed_or_repeat(TAB)) self.insert_codepoint('\t');
 	if (key_pressed_or_repeat(ENTER)) self.insert_codepoint('\n');
 
+	// Page Up / Down timer acceleration
+	bool page_held = rl::is_key_down(PAGE_UP) || rl::is_key_down(PAGE_DOWN);
+	if (page_held)
+	{
+		self.page_hold_timer += dt;
+	}
+	else
+	{
+		self.page_hold_timer = 0.0f;
+	}
+	int step_multiplier = 1 + math::clamp((int)(self.page_hold_timer * 5.0f), 0, 10);
+	int move_lines      = visible_lines * step_multiplier;
+
 	if (key_pressed_or_repeat(PAGE_UP))
 	{
 		int line_pu        = self.get_line(self.cursor_pos);
-		int target_line_pu = math::max(0, line_pu - visible_lines);
+		int target_line_pu = math::max(0, line_pu - move_lines);
 		self.cursor_pos = self.get_pos_from_line_col(target_line_pu, self.target_col);
 		if (!self.shift_held) self.sel_anchor = self.cursor_pos;
 	}
@@ -832,24 +1210,21 @@ fn void Editor.poll_raylib_input(&self, int visible_lines, int visible_cols)
 	{
 		int line_pd        = self.get_line(self.cursor_pos);
 		int tot_pd         = self.get_total_lines();
-		int target_line_pd = math::min(tot_pd - 1, line_pd + visible_lines);
+		int target_line_pd = math::min(tot_pd - 1, line_pd + move_lines);
 		self.cursor_pos = self.get_pos_from_line_col(target_line_pd, self.target_col);
 		if (!self.shift_held) self.sel_anchor = self.cursor_pos;
 	}
 	if (key_pressed_or_repeat(LEFT))
 	{
 		sz new_pos_l = self.cursor_pos;
-		if (self.ctrl_held)
+		switch
 		{
-			new_pos_l = self.get_prev_word_pos(self.cursor_pos);
-		}
-		else if (!self.shift_held && self.cursor_pos != self.sel_anchor)
-		{
-			new_pos_l = math::min(self.cursor_pos, self.sel_anchor);
-		}
-		else
-		{
-			new_pos_l = self.get_prev_char_pos(self.cursor_pos);
+			case self.ctrl_held:
+				new_pos_l = self.get_prev_word_pos(self.cursor_pos);
+			case !self.shift_held && self.cursor_pos != self.sel_anchor:
+				new_pos_l = math::min(self.cursor_pos, self.sel_anchor);
+			default:
+				new_pos_l = self.get_prev_char_pos(self.cursor_pos);
 		}
 
 		self.cursor_pos = new_pos_l;
@@ -859,17 +1234,14 @@ fn void Editor.poll_raylib_input(&self, int visible_lines, int visible_cols)
 	if (key_pressed_or_repeat(RIGHT))
 	{
 		sz new_pos_r = self.cursor_pos;
-		if (self.ctrl_held)
+		switch
 		{
-			new_pos_r = self.get_next_word_pos(self.cursor_pos);
-		}
-		else if (!self.shift_held && self.cursor_pos != self.sel_anchor)
-		{
-			new_pos_r = math::max(self.cursor_pos, self.sel_anchor);
-		}
-		else
-		{
-			new_pos_r = self.get_next_char_pos(self.cursor_pos);
+			case self.ctrl_held:
+				new_pos_r = self.get_next_word_pos(self.cursor_pos);
+			case !self.shift_held && self.cursor_pos != self.sel_anchor:
+				new_pos_r = math::max(self.cursor_pos, self.sel_anchor);
+			default:
+				new_pos_r = self.get_next_char_pos(self.cursor_pos);
 		}
 
 		self.cursor_pos = new_pos_r;
@@ -927,42 +1299,76 @@ fn void Editor.poll_raylib_input(&self, int visible_lines, int visible_cols)
 
 Editor editor;
 
-fn void update_draw_frame()
+fn void update_draw_frame() => @pool()
 {
 	init_font_texture();
 
 	float dt   = rl::get_frame_time();
 	int width  = rl::get_screen_width();
 	int height = rl::get_screen_height();
-	if (width <= 0) width = 1024;
-	if (height <= 0) height = 768;
+	if (width <= 0) width = 1600;
+	if (height <= 0) height = 900;
+
+	if (editor.save_msg_timer > 0.0f)
+	{
+		editor.save_msg_timer -= dt;
+		if (editor.save_msg_timer < 0.0f) editor.save_msg_timer = 0.0f;
+	}
 
 	if (!editor.initialized)
 	{
 		editor.initialized = true;
-		editor.load_text(
-			`// C3 + Raylib Text Editor Engine (Gap Buffer Backed)
-//
-// Supported Features & Shortcuts:
-// - Buffer: Dynamic High-Performance Gap Buffer Data Structure
-// - Font: Pixel-Perfect 5x8 Monospace Bitmap Font (2x Scale)
-// - Mouse: Click positioning, Word Double-Click, Drag-to-select
-// - Scrolling: Vertical & Horizontal (Shift + Wheel)
-// - Navigation: Arrows, Home/End, PageUp/Down, Word Jumps (Ctrl + Arrows)
-// - Selection: Shift + Navigation, Ctrl + A (Select All)
-// - Clipboard: Ctrl+C (Copy), Ctrl+X (Cut), Ctrl+V (Paste from OS), Ctrl+Z (Undo)
+		if (editor.is_file_specified)
+		{
+			if (try content = file::load_temp(editor.current_filepath))
+			{
+				editor.load_text((String)content);
+			}
+			else
+			{
+				editor.load_text("");
+			}
+		}
+		else
+		{
+			editor.load_text(
+				`/*
 
-ABCDEFGHIJKLMNOPQRSTUVWXYZ
-abcdefghijklmnopqrstuvwxyz
-0123456789
-. , ! ? : ; " ' - + = < >
-( ) [ ] { } / \ _ * # @ &
-~ $ % ^ |
+ C3 Text Editor
+
+ Features & Shortcuts:
+ - Navigation : Arrows, Home / End, PageUp / PageDown
+ - Word Jumps : Ctrl + Left / Right
+ - Selection  : Shift + Navigation, Ctrl + A (Select All)
+ - Clipboard  : Ctrl + C (Copy), Ctrl + X (Cut), Ctrl + V (Paste)
+ - History    : Ctrl + Z (Undo)
+ - Go to Line : Ctrl + G
+ - File Ops   : Ctrl + S (Save), Ctrl + Q (Quit)
+ - Mouse      : Click, Double-click (word), Drag to select
+
+*/
+
+module main;
+import std::io;
+
+fn int main(String[] args)
+{
+	io::printn("Hello, World!");
+	return 0;
+}
 `
-		);
+			);
+		}
 	}
 
-	int editor_w = width - TEXT_START_X;
+	// Dynamic Gutter Calculation
+	int total_lines  = editor.get_total_lines();
+	int digits       = math::max(4, get_num_digits(total_lines));
+	int gutter_width = digits * CHAR_WIDTH + GUTTER_PADDING_RIGHT + GUTTER_BORDER_W;
+	int text_start_x = gutter_width + TEXT_PADDING_X;
+	int text_start_y = HEADER_HEIGHT + TEXT_PADDING_Y;
+
+	int editor_w = width - text_start_x;
 	int editor_h = height - HEADER_HEIGHT - FOOTER_HEIGHT;
 
 	int visible_lines = math::max(1, (editor_h - TEXT_PADDING_Y * 2) / LINE_HEIGHT);
@@ -975,25 +1381,23 @@ abcdefghijklmnopqrstuvwxyz
 		editor.cursor_visible = !editor.cursor_visible;
 	}
 
-	editor.poll_raylib_input(visible_lines, visible_cols);
+	editor.poll_raylib_input(visible_lines, visible_cols, text_start_x, text_start_y, dt);
 
 	rl::begin_drawing();
 	rl::clear_background(COLOR_BG);
 
-	// Scissor mode for editor viewport
-	rl::begin_scissor_mode(TEXT_START_X, HEADER_HEIGHT, editor_w, editor_h);
+	rl::begin_scissor_mode(text_start_x, text_start_y, editor_w, editor_h);
 
-	// active line highlight
-	int total_lines     = editor.get_total_lines();
+	// Active line highlight
 	int cline           = editor.get_line(editor.cursor_pos);
 	int ccol            = editor.get_col(editor.cursor_pos);
 	int active_rel_line = cline - editor.scroll_line;
 
 	if (active_rel_line >= 0 && active_rel_line < visible_lines)
 	{
-		int hl_y = TEXT_START_Y + active_rel_line * LINE_HEIGHT;
+		int hl_y = text_start_y + active_rel_line * LINE_HEIGHT;
 		rl::draw_rectangle(
-			TEXT_START_X - TEXT_PADDING_X,
+			text_start_x - TEXT_PADDING_X,
 			hl_y - 1,
 			editor_w + TEXT_PADDING_X,
 			LINE_HEIGHT,
@@ -1001,7 +1405,7 @@ abcdefghijklmnopqrstuvwxyz
 		);
 	}
 
-	// text & selection
+	// Text & selection
 	sz sel_start = math::min(editor.cursor_pos, editor.sel_anchor);
 	sz sel_end   = math::max(editor.cursor_pos, editor.sel_anchor);
 	bool has_sel = sel_start != sel_end;
@@ -1009,15 +1413,39 @@ abcdefghijklmnopqrstuvwxyz
 	int start_line = math::clamp(editor.scroll_line, 0, math::max(0, total_lines - 1));
 	int end_line   = math::min(total_lines, start_line + visible_lines + 1);
 
-	sz start_pos   = editor.get_line_start_of_line(start_line);
-	sz end_pos     = editor.get_line_start_of_line(end_line);
+	sz start_pos = editor.get_line_start_of_line(start_line);
+	sz end_pos   = editor.get_line_start_of_line(end_line);
 
-	int cur_line   = start_line;
-	int cur_col    = 0;
+	int cur_line = start_line;
+	int cur_col  = 0;
+
+	// Line lexing buffers & state tracking for rendering
+	int active_lex_line   = -1;
+	TokenType[1024] dummy_toks;
+	TokenType[] line_tokens;
+	sz cur_line_start_pos =  0;
+	sz cur_line_len       =  0;
 
 	GapBufferIterator iter = editor.buffer.iterator(start_pos, end_pos);
 	while (iter.has_next())
 	{
+		if (cur_line != active_lex_line)
+		{
+			active_lex_line = cur_line;
+			cur_line_start_pos = editor.get_line_start_of_line(cur_line);
+			sz line_end_pos = editor.get_line_end(cur_line_start_pos);
+			cur_line_len = line_end_pos - cur_line_start_pos;
+
+			LineState line_start_state = (cur_line == 0) ? LineState.NORMAL
+				: ((sz)cur_line - 1 < editor.line_states.len() ? editor.line_states[(sz)cur_line - 1]
+					: LineState.NORMAL);
+
+			line_tokens = (cur_line_len <= 1024) ? dummy_toks[:cur_line_len]
+				: alloc::alloc_array(tmem, TokenType, cur_line_len);
+
+			lex_line(&editor.buffer, cur_line_start_pos, line_end_pos, line_start_state, line_tokens);
+		}
+
 		sz i     = iter.byte_pos();
 		Char32 c = iter.next()!!;
 
@@ -1026,10 +1454,16 @@ abcdefghijklmnopqrstuvwxyz
 
 		bool is_visible = rel_line >= 0 && rel_line < visible_lines;
 
-		int px = TEXT_START_X + rel_col * CHAR_WIDTH;
-		int py = TEXT_START_Y + rel_line * LINE_HEIGHT;
+		int px = text_start_x + rel_col * CHAR_WIDTH;
+		int py = text_start_y + rel_line * LINE_HEIGHT;
 
 		bool is_selected = has_sel && (i >= sel_start && i < sel_end);
+
+		TokenType token_type = DEFAULT;
+		if (i >= cur_line_start_pos && (i - cur_line_start_pos) < cur_line_len)
+		{
+			token_type = line_tokens[i - cur_line_start_pos];
+		}
 
 		switch (c)
 		{
@@ -1059,7 +1493,7 @@ abcdefghijklmnopqrstuvwxyz
 				cur_col += tab_spaces;
 				continue;
 			default:
-				if (is_visible && px + CHAR_WIDTH >= TEXT_START_X && px < width)
+				if (is_visible && px + CHAR_WIDTH >= text_start_x && px < width)
 				{
 					if (is_selected)
 					{
@@ -1068,113 +1502,146 @@ abcdefghijklmnopqrstuvwxyz
 					}
 					else
 					{
-						draw_char(c, px, py, FONT_SCALE, COLOR_TEXT);
+						draw_char(c, px, py, FONT_SCALE, token_type.color);
 					}
 				}
 				cur_col++;
 		}
 	}
 
-	// cursor
+	// Cursor
 	if (editor.cursor_visible && active_rel_line >= 0 && active_rel_line < visible_lines)
 	{
-		int cx = TEXT_START_X + (ccol - editor.scroll_col) * CHAR_WIDTH;
-		int cy = TEXT_START_Y + active_rel_line * LINE_HEIGHT;
+		int cx = text_start_x + (ccol - editor.scroll_col) * CHAR_WIDTH;
+		int cy = text_start_y + active_rel_line * LINE_HEIGHT;
 		rl::draw_rectangle(cx, cy, CURSOR_WIDTH, CHAR_HEIGHT + CURSOR_EXTRA_HEIGHT, COLOR_CURSOR);
 	}
 
 	rl::end_scissor_mode();
 
-	// gutter & line numbers
-	rl::draw_rectangle(0, HEADER_HEIGHT, GUTTER_WIDTH, editor_h, COLOR_GUTTER_BG);
-	rl::draw_rectangle(GUTTER_WIDTH, HEADER_HEIGHT, GUTTER_BORDER_W, editor_h, COLOR_GUTTER_BORDER);
+	// Dynamic Gutter & Line Numbers
+	rl::draw_rectangle(0, HEADER_HEIGHT, gutter_width - GUTTER_BORDER_W, editor_h, COLOR_GUTTER_BG);
+	rl::draw_rectangle(gutter_width - GUTTER_BORDER_W, HEADER_HEIGHT, GUTTER_BORDER_W, editor_h, COLOR_GUTTER_BORDER);
 
 	for (int l = 0; l < visible_lines; l++)
 	{
 		int line_idx = l + editor.scroll_line;
 		if (line_idx >= total_lines) break;
 
-		int gy       = TEXT_START_Y + l * LINE_HEIGHT;
+		int gy       = text_start_y + l * LINE_HEIGHT;
 		RLColor gcol = (line_idx == cline) ? COLOR_ACCENT_BLUE : COLOR_TEXT_MUTED;
 		char[32] gbuf;
 		String gs    = string::bformat(&gbuf, "%d", line_idx + 1);
 		int text_w   = gs.len * CHAR_WIDTH;
-		int draw_x   = GUTTER_WIDTH - GUTTER_PADDING_RIGHT - text_w;
+		int draw_x   = gutter_width - GUTTER_BORDER_W - GUTTER_PADDING_RIGHT - text_w;
 		draw_text(gs, draw_x, gy, FONT_SCALE, gcol);
 	}
 
-	// header
-	int header_text_y = (HEADER_HEIGHT - CHAR_HEIGHT) / 2;
-	rl::draw_rectangle(0, 0, width, HEADER_HEIGHT, COLOR_HEADER_BG);
-	draw_text("C3 EDITOR", 12, header_text_y, FONT_SCALE, COLOR_ACCENT_BLUE);
-
-	int stat_x = 150;
-
-	draw_text("LN:", stat_x, header_text_y, FONT_SCALE, COLOR_HEADER_MUTED);
-	stat_x += 3 * CHAR_WIDTH + 6;
-
-	char[32] ln_buf;
-	String ln_str = string::bformat(&ln_buf, "%d", cline + 1);
-	draw_text(ln_str, stat_x, header_text_y, FONT_SCALE, COLOR_TEXT_BRIGHT);
-	stat_x += ln_str.len * CHAR_WIDTH + 16;
-
-	draw_text("COL:", stat_x, header_text_y, FONT_SCALE, COLOR_HEADER_MUTED);
-	stat_x += 4 * CHAR_WIDTH + 6;
-
-	char[32] col_buf;
-	String col_str = string::bformat(&col_buf, "%d", ccol + 1);
-	draw_text(col_str, stat_x, header_text_y, FONT_SCALE, COLOR_TEXT_BRIGHT);
-	stat_x += col_str.len * CHAR_WIDTH + 16;
-
-	sz sel_count = editor.cursor_pos > editor.sel_anchor ? editor.cursor_pos - editor.sel_anchor
-		: editor.sel_anchor - editor.cursor_pos;
-	if (sel_count > 0)
+	// Go-To-Line Modal Dialog Box
+	if (editor.goto_modal_open)
 	{
-		draw_text("SEL:", stat_x, header_text_y, FONT_SCALE, COLOR_ACCENT_YELLOW);
-		stat_x += 4 * CHAR_WIDTH + 6;
-		char[32] sel_buf;
-		String sel_str = string::bformat(&sel_buf, "%d", sel_count);
-		draw_text(sel_str, stat_x, header_text_y, FONT_SCALE, COLOR_ACCENT_YELLOW);
-		stat_x += sel_str.len * CHAR_WIDTH + 16;
+		int modal_w = 320;
+		int modal_h = 90;
+		int modal_x = (width - modal_w) / 2;
+		int modal_y = (height - modal_h) / 3;
+
+		rl::draw_rectangle(modal_x - 4, modal_y - 4, modal_w + 8, modal_h + 8, COLOR_GUTTER_BORDER);
+		rl::draw_rectangle(modal_x, modal_y, modal_w, modal_h, COLOR_HEADER_BG);
+
+		draw_text("GO TO LINE:", modal_x + 16, modal_y + 16, FONT_SCALE, COLOR_ACCENT_BLUE);
+
+		rl::draw_rectangle(modal_x + 16, modal_y + 44, modal_w - 32, 30, COLOR_BG);
+		rl::draw_rectangle_lines(modal_x + 16, modal_y + 44, modal_w - 32, 30, COLOR_GUTTER_BORDER);
+
+		String inp_str = (String)editor.goto_input_buf[:editor.goto_input_len];
+		draw_text(inp_str, modal_x + 24, modal_y + 50, FONT_SCALE, COLOR_TEXT_BRIGHT);
+
+		if (editor.cursor_visible)
+		{
+			int cur_x = modal_x + 24 + editor.goto_input_len * CHAR_WIDTH;
+			rl::draw_rectangle(cur_x, modal_y + 50, CURSOR_WIDTH, CHAR_HEIGHT, COLOR_CURSOR);
+		}
 	}
 
-	if (editor.shift_held)
-	{
-		draw_text("[SHIFT]", stat_x, header_text_y, FONT_SCALE, COLOR_ACCENT_GREEN);
-		stat_x += 7 * CHAR_WIDTH + 12;
-	}
-
-	if (editor.ctrl_held)
-	{
-		draw_text("[CTRL]", stat_x, header_text_y, FONT_SCALE, COLOR_ACCENT_BLUE);
-	}
-
-	// footer
+	// Footer Bar
 	int footer_y      = height - FOOTER_HEIGHT;
 	int footer_text_y = footer_y + (FOOTER_HEIGHT - CHAR_HEIGHT) / 2;
 	rl::draw_rectangle(0, footer_y, width, FOOTER_HEIGHT, COLOR_FOOTER_BG);
 
-	char[40] undo_buf;
-	String undo_str = string::bformat(&undo_buf, "UNDO: %d", editor.undo_stack.len());
-	draw_text(undo_str, 12, footer_text_y, FONT_SCALE, COLOR_HEADER_MUTED);
+	// Left: File path, Save status, Undo count
+	char[128] left_buf;
+	String file_disp = editor.current_filepath.len > 0 ? editor.current_filepath : "untitled.c3";
+	String mod_str   = editor.is_modified ? " [+]" : "";
+	String save_str  = (editor.save_msg_timer > 0.0f) ? " [SAVED]" : "";
+	String left_s = string::bformat(
+		&left_buf,
+		"%s%s%s   UNDO: %d",
+		file_disp,
+		mod_str,
+		save_str,
+		editor.undo_stack.len()
+	);
+	draw_text(left_s, 12, footer_text_y, FONT_SCALE, COLOR_TEXT_BRIGHT);
 
-	char[64] info_buf;
-	String info_s = string::bformat(&info_buf, "LINES: %d  CHARS: %d", total_lines, editor.buffer.len());
-	int info_w    = info_s.len * CHAR_WIDTH;
-	draw_text(info_s, width - info_w - 12, footer_text_y, FONT_SCALE, COLOR_HEADER_MUTED);
+	// Middle: Badges
+	int mid_x = width / 2 - 120;
+	if (editor.shift_held)
+	{
+		draw_text("[SHIFT]", mid_x, footer_text_y, FONT_SCALE, COLOR_ACCENT_GREEN);
+		mid_x += 8 * CHAR_WIDTH;
+	}
+	if (editor.ctrl_held)
+	{
+		draw_text("[CTRL]", mid_x, footer_text_y, FONT_SCALE, COLOR_ACCENT_BLUE);
+		mid_x += 7 * CHAR_WIDTH;
+	}
+	sz sel_count = editor.cursor_pos > editor.sel_anchor ? editor.cursor_pos - editor.sel_anchor
+		: editor.sel_anchor - editor.cursor_pos;
+	if (sel_count > 0)
+	{
+		char[32] sel_buf;
+		String sel_s = string::bformat(&sel_buf, "SEL: %d", sel_count);
+		draw_text(sel_s, mid_x, footer_text_y, FONT_SCALE, COLOR_ACCENT_YELLOW);
+	}
+
+	// Right: Position LN/COL & Document stats
+	char[128] right_buf;
+	String right_s = string::bformat(
+		&right_buf,
+		"LN: %d  COL: %d   LINES: %d  CHARS: %d",
+		cline + 1,
+		ccol + 1,
+		total_lines,
+		editor.buffer.len()
+	);
+	int right_w = right_s.len * CHAR_WIDTH;
+	draw_text(right_s, width - right_w - 12, footer_text_y, FONT_SCALE, COLOR_HEADER_MUTED);
 
 	rl::end_drawing();
 }
 
 fn int main(String[] args) @winmain
 {
+	if (args.len > 1)
+	{
+		editor.current_filepath = args[1];
+		editor.is_file_specified = true;
+	}
+	else
+	{
+		editor.current_filepath = "untitled.c3";
+		editor.is_file_specified = false;
+	}
+
+	// rl::set_trace_log_level(RLTraceLogLevel.WARNING);
+	rl::set_config_flags(RLConfigFlag.WINDOW_RESIZABLE);
 	rl::init_window(1600, 900, "C3 Text Editor - C3 & Raylib");
 
 	$if env::WASM:
 		emscripten_set_main_loop(&update_draw_frame, 60, 1);
 	$else
 		rl::set_target_fps(60);
-		while (!rl::window_should_close())
+		while (!rl::window_should_close() && !editor.should_exit)
 		{
 			update_draw_frame();
 		}
@@ -1183,6 +1650,11 @@ fn int main(String[] args) @winmain
 
 	return 0;
 }
+
+// Stub GLFW joystick callback to bypass Raylib's /dev/input scan on Linux startup
+// This makes the start faster
+// needs the linker flag `-z "-Wl,--allow-multiple-definition"`
+// fn void glfwSetJoystickCallback(void* cb) @cname("glfwSetJoystickCallback") @export @feat(!WASM) {}
 
 alias Em_callback_func = fn void();
 extern fn void emscripten_set_main_loop(Em_callback_func func, int fps, int simulate_infinite_loop);
@@ -1684,7 +2156,7 @@ fn Char32 GapBuffer.get_char32(&self, sz pos, sz* read_bytes)
 // $##################################
 // GapBufferIterator
 
-<* 
+<*
  UTF-8 codepoint iterator for GapBuffer
 *>
 struct GapBufferIterator
