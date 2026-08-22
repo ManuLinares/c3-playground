@@ -23,7 +23,7 @@ echo "Raylib Library: ${RAYLIB_LIB}"
 
 # 1. Build and copy Emscripten system static archives for C3 builtin linker
 mkdir -p "${SYS_LIB_DIR}"
-embuilder build libc libdlmalloc libstubs libsockets
+embuilder build libc libdlmalloc libstubs libsockets libclang_rt.builtins
 
 EM_CACHE="$(em-config CACHE)"
 EM_CACHE_DIR="${EM_CACHE}/sysroot/lib/wasm32-emscripten"
