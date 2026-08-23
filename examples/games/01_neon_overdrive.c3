@@ -530,7 +530,13 @@ fn void update_draw_frame()
 
 	// Input via Raylib
 	RLVector2 rl_mouse = rl::get_mouse_position();
-	mouse_pos = { rl_mouse.x, rl_mouse.y };
+	$if env::WASM:
+		float scale_x = (float)width / (float)rl::get_render_width();
+		float scale_y = (float)height / (float)rl::get_render_height();
+		mouse_pos = { rl_mouse.x * scale_x, rl_mouse.y * scale_y };
+	$else
+		mouse_pos = { rl_mouse.x, rl_mouse.y };
+	$endif
 	mouse_down = rl::is_mouse_button_down(RLMouseButton.LEFT);
 
 	if (rl::is_mouse_button_pressed(RLMouseButton.LEFT) || rl::is_key_pressed(RLKeyboardKey.SPACE))
