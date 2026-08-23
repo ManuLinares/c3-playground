@@ -1,14 +1,12 @@
 module main;
 
-import std;
-import raylib6;
+import std, raylib6;
 
 const int SCREEN_WIDTH  = 640;
 const int SCREEN_HEIGHT = 480;
 const uint SAMPLE_RATE  = 44100;
 const float BPM         = 110.0f;
 const int STEP_SAMPLES  = (int)((15.0f / BPM) * (float)SAMPLE_RATE);
-const float TWO_PI      = 6.2831853f;
 
 const float[16] BASS_NOTES = {
 	55.0f, 55.0f, 55.0f, 55.0f,
@@ -68,7 +66,7 @@ fn void audio_callback(void* buffer, uint frames)
 
 		lfo_phase += 1.5f / (float)SAMPLE_RATE;
 		solo_freq += (solo_target_freq - solo_freq) * 0.002f;
-		float modulated_solo = solo_freq + math::sin(lfo_phase * TWO_PI * 6.0f) * (solo_amp * 40.0f);
+		float modulated_solo = solo_freq + math::sin(lfo_phase * (float)math::TAU * 6.0f) * (solo_amp * 40.0f);
 
 		float bass_root = BASS_NOTES[step];
 		if (step % 2 == 1) bass_root *= 2.0f;
@@ -77,10 +75,10 @@ fn void audio_callback(void* buffer, uint frames)
 		switch (bar)
 		{
 			case 4..5: lead_base *= 2.0f;
-			case 6: lead_base *= 1.5f;
+			case 6:    lead_base *= 1.5f;
 		}
 
-		float lead_freq = lead_base + math::sin(lfo_phase * TWO_PI * 2.5f) * 2.5f;
+		float lead_freq = lead_base + math::sin(lfo_phase * (float)math::TAU * 2.5f) * 2.5f;
 
 		float[<4>] phase_inc = { 350.0f * amp.x, 180.0f, bass_root, lead_freq };
 		phase += phase_inc / (float)SAMPLE_RATE;
@@ -91,15 +89,15 @@ fn void audio_callback(void* buffer, uint frames)
 		if (solo_phase > 1.0f) solo_phase -= 1.0f;
 		if (lfo_phase > 1.0f) lfo_phase -= 1.0f;
 
-		float kick_raw  = math::sin(phase.x * TWO_PI);
+		float kick_raw  = math::sin(phase.x * (float)math::TAU);
 		float kick_wave = kick_raw * (1.2f - 0.2f * kick_raw * kick_raw);
 
-		float snare_wave = ((float)rnd() * 2.0f - 1.0f) * 0.7f + math::sin(phase.y * TWO_PI) * 0.3f;
-		float bass_mod   = math::sin(phase.z * TWO_PI) * 1.5f;
-		float bass_wave  = math::sin(phase.z * TWO_PI + bass_mod);
+		float snare_wave = ((float)rnd() * 2.0f - 1.0f) * 0.7f + math::sin(phase.y * (float)math::TAU) * 0.3f;
+		float bass_mod   = math::sin(phase.z * (float)math::TAU) * 1.5f;
+		float bass_wave  = math::sin(phase.z * (float)math::TAU + bass_mod);
 		float lead_wave  = math::abs(phase.w * 2.0f - 1.0f) * 2.0f - 1.0f;
 
-		float duty      = 0.5f + math::sin(lfo_phase * TWO_PI * 2.0f) * 0.25f;
+		float duty      = 0.5f + math::sin(lfo_phase * (float)math::TAU * 2.0f) * 0.25f;
 		float solo_wave = (solo_phase < duty ? 0.6f : -0.6f) * solo_amp;
 
 		float[<4>] voice_out = { kick_wave, snare_wave, bass_wave, lead_wave };
@@ -112,52 +110,47 @@ RLAudioStream stream;
 
 fn void update_draw_frame()
 {
-	rl::begin_drawing();
-	rl::clear_background((RLColor) { 15, 23, 42, 255 });
+	int sw = rl::get_render_width();
+	int sh = rl::get_render_height();
+	float scale = (float)sh / 480.0f;
 
-	// Bass Bars
-	float bass_w = amp.z * 180.0f;
-	rl::draw_rectangle(0, 0, (int)bass_w, SCREEN_HEIGHT, (RLColor) { 255, 20, 147, 80 });
-	rl::draw_rectangle(SCREEN_WIDTH - (int)bass_w, 0, (int)bass_w, SCREEN_HEIGHT, (RLColor) { 255, 20, 147, 80 });
-
-	// Kick Pulse
-	float kick_r = amp.x * 120.0f;
-	rl::draw_circle(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, kick_r, (RLColor) { 20, 80, 240, 180 });
-
-	// Lead Ring
-	float lead_r = amp.w * 90.0f;
-	if (lead_r > 2.0f)
+	rl::@drawing()
 	{
-		rl::draw_circle_lines(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, lead_r, (RLColor) { 0, 255, 255, 220 });
-	}
+		rl::clear_background((RLColor) { 15, 23, 42, 255 });
 
-	// Snare Flash
-	float hat_flash = amp.y * 60.0f;
-	rl::draw_rectangle(0, 0, SCREEN_WIDTH, (int)hat_flash, (RLColor) { 240, 200, 20, 120 });
-	rl::draw_rectangle(
-		0,
-		SCREEN_HEIGHT - (int)hat_flash,
-		SCREEN_WIDTH,
-		(int)hat_flash,
-		(RLColor) { 240, 200, 20, 120 }
-	);
+		float bass_w = amp.z * (float)sw * 0.25f;
+		rl::draw_rectangle(0, 0, (int)bass_w, sh, (RLColor) { 255, 20, 147, 80 });
+		rl::draw_rectangle(sw - (int)bass_w, 0, (int)bass_w, sh, (RLColor) { 255, 20, 147, 80 });
 
-	// Solo Waveform
-	float solo_height = solo_amp * 90.0f;
-	for (int x = 0; x < SCREEN_WIDTH - 1; x += 4)
-	{
-		float w1 = math::sin((float)x * 0.08f + solo_phase * TWO_PI) * solo_height;
-		float w2 = math::sin((float)(x + 4) * 0.08f + solo_phase * TWO_PI) * solo_height;
-		rl::draw_line(x, SCREEN_HEIGHT / 2 + (int)w1, x + 4, SCREEN_HEIGHT / 2 + (int)w2, rl::WHITE);
-	}
+		float kick_r = amp.x * 120.0f * scale;
+		rl::draw_circle(sw / 2, sh / 2, kick_r, (RLColor) { 20, 80, 240, 180 });
 
-	rl::draw_text("C3 Audio & Visuals Synthesizer (Raylib)", 20, 20, 20, rl::RAYWHITE);
-	rl::draw_fps(SCREEN_WIDTH - 80, 20);
-	rl::end_drawing();
+		float lead_r = amp.w * 90.0f * scale;
+		if (lead_r > 2.0f)
+		{
+			rl::draw_circle_lines(sw / 2, sh / 2, lead_r, (RLColor) { 0, 255, 255, 220 });
+		}
+
+		float hat_flash = amp.y * 60.0f * scale;
+		rl::draw_rectangle(0, 0, sw, (int)hat_flash, (RLColor) { 240, 200, 20, 120 });
+		rl::draw_rectangle(0, sh - (int)hat_flash, sw, (int)hat_flash, (RLColor) { 240, 200, 20, 120 });
+
+		float solo_height = solo_amp * 90.0f * scale;
+		for (int x = 0; x < sw - 1; x += 4)
+		{
+			float w1 = math::sin((float)x * 0.08f + solo_phase * (float)math::TAU) * solo_height;
+			float w2 = math::sin((float)(x + 4) * 0.08f + solo_phase * (float)math::TAU) * solo_height;
+			rl::draw_line(x, sh / 2 + (int)w1, x + 4, sh / 2 + (int)w2, rl::WHITE);
+		}
+
+		rl::draw_text("C3 Audio & Visuals Synthesizer (Raylib)", 20, 20, 20, rl::RAYWHITE);
+		rl::draw_fps(sw - 80, 20);
+	};
 }
 
 fn int main(String[] args) @winmain
 {
+	rl::set_config_flags(WINDOW_RESIZABLE);
 	rl::init_window(SCREEN_WIDTH, SCREEN_HEIGHT, "Audio and Visuals - C3 & Raylib");
 	rl::init_audio_device();
 
@@ -169,10 +162,7 @@ fn int main(String[] args) @winmain
 		emscripten_set_main_loop(&update_draw_frame, 60, 1);
 	$else
 		rl::set_target_fps(60);
-		while (!rl::window_should_close())
-		{
-			update_draw_frame();
-		}
+		while (!rl::window_should_close()) update_draw_frame();
 		rl::unload_audio_stream(stream);
 		rl::close_audio_device();
 		rl::close_window();

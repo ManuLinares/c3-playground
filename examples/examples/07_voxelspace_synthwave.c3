@@ -1,7 +1,6 @@
 module main;
 
-import std;
-import raylib6;
+import std, raylib6;
 
 alias Rgba = char[<4>];
 
@@ -95,13 +94,10 @@ fn void init_map()
 			float ny = (float)y / (float)MAP_SIZE;
 
 			float h = 0.0f;
-			h += (math::sin(nx * (float)math::TWO_PI * 1.0f) + math::cos(ny * (float)math::TWO_PI * 1.0f)) * 42.0f;
-			h += (math::sin(
-				nx * (float)math::TWO_PI * 3.0f + 1.2f
-			) + math::sin(ny * (float)math::TWO_PI * 2.0f)) * 24.0f;
-			h += (math::sin(nx * (float)math::TWO_PI * 7.0f) * math::cos(ny * (float)math::TWO_PI * 7.0f)) * 14.0f;
-			h += (float)rnd() * 4.0f;
-			h += 110.0f;
+			h += (math::sin(nx * (float)math::TAU * 1.0f) + math::cos(ny * (float)math::TAU * 1.0f)) * 42.0f;
+			h += (math::sin(nx * (float)math::TAU * 3.0f + 1.2f) + math::sin(ny * (float)math::TAU * 2.0f)) * 24.0f;
+			h += (math::sin(nx * (float)math::TAU * 7.0f) * math::cos(ny * (float)math::TAU * 7.0f)) * 14.0f;
+			h += (float)rnd() * 4.0f + 110.0f;
 
 			h = math::clamp(h, 0.0f, 255.0f);
 			height_map[y][x] = (char)h;
@@ -169,12 +165,11 @@ fn void audio_callback(void* buffer, uint frames)
 		bass_phase_2 += (BASS_ROOTS[(step / 16) % 8] * 1.006f) / (float)SAMPLE_RATE;
 		if (bass_phase_2 > 1.0f) bass_phase_2 -= 1.0f;
 
-		lead_delay_buffer = lead_delay_buffer * 0.65f + (phase.w < 0.5f ? 0.75f
-			: -0.75f) * (1.0f - amp.x * 0.65f) * 0.35f;
+		lead_delay_buffer = lead_delay_buffer * 0.65f + (phase.w < 0.5f ? 0.75f : -0.75f) * (1.0f - amp.x * 0.65f) * 0.35f;
 
 		float[<4>] voice_out = {
-			math::sin(phase.x * (float)math::TWO_PI),
-			((float)rnd() * 2.0f - 1.0f) * 0.85f + math::sin(phase.y * (float)math::TWO_PI) * 0.15f,
+			math::sin(phase.x * (float)math::TAU),
+			((float)rnd() * 2.0f - 1.0f) * 0.85f + math::sin(phase.y * (float)math::TAU) * 0.15f,
 			((phase.z * 2.0f - 1.0f) + (bass_phase_2 * 2.0f - 1.0f)) * 0.5f,
 			(phase.w < 0.5f ? 0.75f : -0.75f) * (1.0f - amp.x * 0.65f) + lead_delay_buffer * 0.4f
 		};
@@ -185,9 +180,9 @@ fn void audio_callback(void* buffer, uint frames)
 
 fn void update_draw_frame()
 {
-	Rgba* pixels = (Rgba*)canvas_image.data;
-	int width    = SCREEN_WIDTH;
-	int height   = SCREEN_HEIGHT;
+	Rgba[] pixels = ((Rgba*)canvas_image.data)[0..SCREEN_WIDTH * SCREEN_HEIGHT];
+	int width     = SCREEN_WIDTH;
+	int height    = SCREEN_HEIGHT;
 
 	frame_count++;
 	cam_roll = math::sin(frame_count * 0.012f) * 0.22f;
@@ -209,31 +204,26 @@ fn void update_draw_frame()
 	cam_pitch += ((target_h - cam_height) * 0.4f - cam_pitch) * 0.1f;
 	float current_horizon = 175 + cam_pitch;
 
-	// Sky Gradient
 	for (int y = 0; y < height; y++)
 	{
-		float t = y / current_horizon;
+		float t = (float)y / current_horizon;
 		Rgba sky_color;
 		if (t < 1.0f)
 		{
-			sky_color = { .x = (char)(12 + t * 110), .y = (char)(6 + t * 20), .z = (char)(40 + t * 110), .w = 255 };
+			sky_color = { (char)(12 + t * 110), (char)(6 + t * 20), (char)(40 + t * 110), 255 };
 		}
 		else
 		{
 			sky_color = {
-				.x = (char)math::clamp(122 - (t - 1) * 180, 0, 255),
-				.y = (char)math::clamp(26 - (t - 1) * 60, 0, 255),
-				.z = (char)math::clamp(150 - (t - 1) * 200, 0, 255),
-				.w = 255
+				(char)math::clamp(122 - (t - 1) * 180, 0, 255),
+				(char)math::clamp(26 - (t - 1) * 60, 0, 255),
+				(char)math::clamp(150 - (t - 1) * 200, 0, 255),
+				255
 			};
 		}
-		for (int x = 0; x < width; x++)
-		{
-			pixels[y * width + x] = sky_color;
-		}
+		pixels[y * width : width] = sky_color;
 	}
 
-	// Stars
 	float fw = (float)width;
 	for (int i = 0; i < NUM_STARS; i++)
 	{
@@ -250,7 +240,6 @@ fn void update_draw_frame()
 		}
 	}
 
-	// Moon
 	int moon_cx = width / 2 - (int)(math::sin(cam_angle) * 160.0f);
 	int moon_cy = 110 + (int)(cam_pitch * 0.8f);
 	int moon_r  = 44;
@@ -287,12 +276,11 @@ fn void update_draw_frame()
 				continue;
 			}
 
-			float nx    = (float)dx / 44.0f;
-			float ny    = (float)dy / 44.0f;
-			float nz    = math::sqrt(math::clamp(1.0f - nx * nx - ny * ny, 0.0f, 1.0f));
+			float nx = (float)dx / 44.0f;
+			float ny = (float)dy / 44.0f;
+			float nz = math::sqrt(math::clamp(1.0f - nx * nx - ny * ny, 0.0f, 1.0f));
 			float light = math::clamp(nz * 0.75f - nx * 0.3f - ny * 0.35f + 0.25f, 0.25f, 1.0f);
-
-			float crater    = math::sin(nx * 7.0f) * math::cos(ny * 7.0f) * 0.12f;
+			float crater = math::sin(nx * 7.0f) * math::cos(ny * 7.0f) * 0.12f;
 			float intensity = math::clamp(light + crater, 0.2f, 1.0f);
 
 			pixels[py * width + px] = {
@@ -304,7 +292,6 @@ fn void update_draw_frame()
 		}
 	}
 
-	// VoxelSpace Terrain Raycaster
 	for (int x = 0; x < width; x++)
 	{
 		float h_line    = current_horizon + (x - width * 0.5f) * math::tan(cam_roll);
@@ -325,9 +312,7 @@ fn void update_draw_frame()
 
 			if (h < 52)
 			{
-				float wave = math::sin(
-					map_x * 0.18f + frame_count * 0.08f
-				) + math::cos(map_y * 0.18f - frame_count * 0.06f);
+				float wave = math::sin(map_x * 0.18f + frame_count * 0.08f) + math::cos(map_y * 0.18f - frame_count * 0.06f);
 				float spec = math::clamp(1.0f - math::abs(x - moon_cx) / 160.0f, 0.0f, 1.0f) * (0.6f + wave * 0.2f);
 				col = {
 					(char)(20 + spec * 235),
@@ -338,8 +323,7 @@ fn void update_draw_frame()
 			}
 			else
 			{
-				float slope = (h - height_map[map_y][(map_x + 1) & MAP_MASK])
-					+ (h - height_map[(map_y + 1) & MAP_MASK][map_x]);
+				float slope = (h - height_map[map_y][(map_x + 1) & MAP_MASK]) + (h - height_map[(map_y + 1) & MAP_MASK][map_x]);
 				float light = math::clamp(1.0f + slope * 0.02f, 0.2f, 1.8f);
 				col.x = (char)math::clamp(col.x * light, 0, 255);
 				col.y = (char)math::clamp(col.y * light, 0, 255);
@@ -369,16 +353,29 @@ fn void update_draw_frame()
 
 	canvas_texture.update(canvas_image.data);
 
-	rl::begin_drawing();
-	rl::clear_background(rl::BLACK);
-	rl::draw_texture(canvas_texture, 0, 0, rl::WHITE);
-	rl::draw_text("VoxelSpace Flight Simulator + Synthwave (Raylib)", 20, 20, 20, rl::RAYWHITE);
-	rl::draw_fps(SCREEN_WIDTH - 80, 20);
-	rl::end_drawing();
+	rl::@drawing()
+	{
+		rl::clear_background(rl::BLACK);
+		float sw = (float)rl::get_render_width();
+		float sh = (float)rl::get_render_height();
+		float s  = math::min(sw / (float)SCREEN_WIDTH, sh / (float)SCREEN_HEIGHT);
+		Vec2 size = { (float)SCREEN_WIDTH * s, (float)SCREEN_HEIGHT * s };
+		Vec2 pos  = { (sw - size.x) * 0.5f, (sh - size.y) * 0.5f };
+
+		rl::draw_texture_pro(
+			canvas_texture,
+			{ 0.0f, 0.0f, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT },
+			{ pos.x, pos.y, size.x, size.y },
+			{ 0.0f, 0.0f }, 0.0f, rl::WHITE
+		);
+		rl::draw_text("VoxelSpace Flight Simulator + Synthwave (Raylib)", 20, 20, 20, rl::RAYWHITE);
+		rl::draw_fps(20, 48);
+	};
 }
 
 fn int main(String[] args) @winmain
 {
+	rl::set_config_flags(WINDOW_RESIZABLE);
 	rl::init_window(SCREEN_WIDTH, SCREEN_HEIGHT, "VoxelSpace Flight Simulator - C3 & Raylib");
 	rl::init_audio_device();
 
@@ -395,10 +392,7 @@ fn int main(String[] args) @winmain
 		emscripten_set_main_loop(&update_draw_frame, 60, 1);
 	$else
 		rl::set_target_fps(60);
-		while (!rl::window_should_close())
-		{
-			update_draw_frame();
-		}
+		while (!rl::window_should_close()) update_draw_frame();
 		rl::unload_audio_stream(audio_stream);
 		rl::close_audio_device();
 		rl::unload_texture(canvas_texture);

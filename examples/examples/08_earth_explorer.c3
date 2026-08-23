@@ -182,7 +182,7 @@ struct Pin
 }
 
 // Scene State
-	GlobeCamera cam;
+GlobeCamera cam;
 RLTexture2D tex;
 RLTexture2D star_tex;
 RLShader shader;
@@ -191,9 +191,9 @@ RLModel skybox;
 int sun_pos_loc;
 int is_skybox_loc;
 int sun_fade_loc;
-	List{Pin} pins;
-	double last_sun_update = -1.0;
-	Vec3 sun_pos_cache;
+List{Pin} pins;
+double last_sun_update = -1.0;
+Vec3 sun_pos_cache;
 
 fn void update_draw_frame()
 	{
