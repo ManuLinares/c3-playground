@@ -30,7 +30,7 @@ export const EXAMPLES_MANIFEST = [
 	{ id: "text_editor",          category: "Apps",      name: "Text Editor",              file: "examples/apps/02_text_editor.c3" },
 
 	// 5. AI
-	{ id: "neural_engine",        category: "AI",        name: "Neural Engine (karpathy/tinyllamas)", file: "examples/apps/01_neural_engine.c3" },
+	{ id: "neural_engine",        category: "AI",        name: "Neural Engine (karpathy/tinyllamas)", file: "examples/ai/01_neural_engine.c3" },
 ];
 
 const cache = new Map();
