@@ -7,6 +7,65 @@ const playgroundDir = nodePath.resolve(__dirname, '..');
 const buildDir = nodePath.join(playgroundDir, 'build');
 const examplesDir = nodePath.join(playgroundDir, 'examples');
 
+function parseAssetDirectives(sourceCode) {
+	if (!sourceCode) return [];
+	const regex = /(?:\/\/|\/\*)\s*@asset:\s*(\S+?)(?:\s*(?:->|=>)\s*(\S+?))?(?:\s*\*\/|\s*$)/gm;
+	const assets = [];
+	const seenPaths = new Set();
+	let match;
+
+	while ((match = regex.exec(sourceCode)) !== null) {
+		const url = match[1].trim();
+		let destPath = match[2] ? match[2].trim() : '';
+
+		if (!destPath) {
+			try {
+				const u = new URL(url);
+				destPath = u.pathname.split('/').filter(Boolean).pop() || 'asset.dat';
+			} catch (_) {
+				destPath = url.split('/').filter(Boolean).pop() || 'asset.dat';
+			}
+		}
+
+		destPath = destPath.replace(/\\/g, '/').replace(/^\.?\/+/, '');
+
+		if (url && destPath && !seenPaths.has(destPath)) {
+			seenPaths.add(destPath);
+			assets.push({ url, path: destPath });
+		}
+	}
+	return assets;
+}
+
+function writeVfsFile(fs, filePath, data) {
+	if (!fs || !filePath || !data) return;
+	const cleanPath = filePath.replace(/\\/g, '/');
+	const normalizedPath = cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath;
+	const parts = normalizedPath.split('/').filter(Boolean);
+	parts.pop();
+
+	let cur = '';
+	for (const p of parts) {
+		cur += '/' + p;
+		try {
+			if (fs.analyzePath) {
+				if (!fs.analyzePath(cur).exists) {
+					fs.mkdir(cur);
+				}
+			} else {
+				fs.mkdir(cur);
+			}
+		} catch (_) {}
+	}
+
+	try {
+		fs.unlink(normalizedPath);
+	} catch (_) {}
+
+	const u8 = data instanceof Uint8Array ? data : new Uint8Array(data);
+	fs.writeFile(normalizedPath, u8);
+}
+
 if (targetFile) {
 	// Single file compilation mode
 	const c3cJsText = nodeFs.readFileSync(nodePath.join(buildDir, 'c3c.js'), 'utf8');
@@ -51,8 +110,26 @@ if (targetFile) {
 	Module.print = (t) => { currentOutput += t + '\n'; };
 	Module.printErr = (t) => { currentOutput += t + '\n'; };
 
-	Module.onRuntimeInitialized = function () {
+	Module.onRuntimeInitialized = async function () {
 		const code = nodeFs.readFileSync(nodePath.join(examplesDir, targetFile), 'utf-8');
+
+		// Fetch and mount all asset directives into VFS
+		const assets = parseAssetDirectives(code);
+		for (const asset of assets) {
+			try {
+				const res = await fetch(asset.url);
+				if (!res.ok) {
+					console.error(`[FAIL] Failed to download asset "${asset.path}" from ${asset.url}: ${res.statusText}`);
+					process.exit(1);
+				}
+				const buf = Buffer.from(await res.arrayBuffer());
+				writeVfsFile(Module.FS, asset.path, buf);
+			} catch (err) {
+				console.error(`[FAIL] Error downloading asset "${asset.path}": ${err.message}`);
+				process.exit(1);
+			}
+		}
+
 		Module.FS.writeFile('/tmp/test.c3', code);
 
 		const args = [
