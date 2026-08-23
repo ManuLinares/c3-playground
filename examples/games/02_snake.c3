@@ -35,6 +35,9 @@ float bass_phase  = 0.0f;
 int last_bar      = -1;
 bool glitch_bar   = false;
 
+Vec2 touch_start;
+bool touch_active = false;
+
 const float[16] MELODY = {
 	110.0f, 0.0f, 110.0f, 0.0f,
 	130.81f, 0.0f, 110.0f, 146.83f,
@@ -243,6 +246,35 @@ fn void update_game()
 	if (rl::is_key_pressed(DOWN)  || rl::is_key_pressed(S)) g.queue_move(DOWN);
 	if (rl::is_key_pressed(LEFT)  || rl::is_key_pressed(A)) g.queue_move(LEFT);
 	if (rl::is_key_pressed(RIGHT) || rl::is_key_pressed(D)) g.queue_move(RIGHT);
+
+	RLVector2 mp = rl::get_mouse_position();
+	Vec2 mpos = { mp.x, mp.y };
+
+	if (rl::is_mouse_button_pressed(LEFT))
+	{
+		touch_start = mpos;
+		touch_active = true;
+	}
+	if (touch_active)
+	{
+		Vec2 diff = mpos - touch_start;
+		if (diff.x * diff.x + diff.y * diff.y >= 625.0f)
+		{
+			if (math::abs(diff.x) > math::abs(diff.y))
+			{
+				g.queue_move(diff.x > 0.0f ? RIGHT : LEFT);
+			}
+			else
+			{
+				g.queue_move(diff.y > 0.0f ? DOWN : UP);
+			}
+			touch_start = mpos;
+		}
+	}
+	if (rl::is_mouse_button_released(LEFT))
+	{
+		touch_active = false;
+	}
 
 	g.move_timer += math::min(rl::get_frame_time(), 0.1f);
 	if (g.move_timer < MOVE_SPEED) return;
