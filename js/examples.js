@@ -23,6 +23,7 @@ export const EXAMPLES_MANIFEST = [
 
 	// 3. Games
 	{ id: "neon_overdrive",       category: "Games",     name: "Neon Overdrive",           file: "examples/games/01_neon_overdrive.c3" },
+	{ id: "snake",                category: "Games",     name: "Snake",                    file: "examples/games/02_snake.c3" },
 
 	// 4. Apps
 	{ id: "piano",                category: "Apps",      name: "Piano & MIDI Recorder",    file: "examples/apps/01_piano.c3" },
