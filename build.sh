@@ -278,6 +278,7 @@ if target_umv in content and "syncHeapGlobals" not in content[content.find(targe
 target_cw = "wasmExports = await createWasm();"
 exports_setup = """wasmExports = await createWasm();
 Module['wasmExports'] = wasmExports;
+if (typeof FS !== 'undefined') Module['FS'] = FS;
 if (typeof _emscripten_cancel_main_loop !== 'undefined') Module['cancelMainLoop'] = _emscripten_cancel_main_loop;
 if (typeof _emscripten_pause_main_loop !== 'undefined') Module['pauseMainLoop'] = _emscripten_pause_main_loop;
 if (typeof syncHeapGlobals === 'function') syncHeapGlobals();

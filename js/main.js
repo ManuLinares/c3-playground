@@ -12,6 +12,7 @@ import {
 	getDocsIframePatchJs
 } from './compiler.js';
 import { getSharedCode, createShareLink } from './share.js';
+import { parseAssetDirectives, fetchAssets, writeVfsFile } from './assets.js';
 
 // DOM Elements
 const outputEl = document.getElementById("output");
@@ -437,14 +438,33 @@ require(['vs/editor/editor.main'], async () => {
 		editor.focus();
 	};
 
-	// 6. Compiler Pipeline Execution Handler
-	compileBtn.onclick = () => {
+// 6. Compiler Pipeline Execution Handler
+	compileBtn.onclick = async () => {
 		stopExecution();
 		resumeAudioIfSuspended();
 		clearConsole();
 
-		let compileStderrBuffer = [];
 		const codeValue = editor.getValue();
+		const assetDirectives = parseAssetDirectives(codeValue);
+		let fetchedAssets = [];
+
+		if (assetDirectives.length > 0) {
+			setStatus("Fetching assets...", "compiling");
+			appendConsole(`[Assets] Found ${assetDirectives.length} asset directive(s)...\n`);
+			try {
+				fetchedAssets = await fetchAssets(assetDirectives, (msg) => {
+					setStatus(msg, "compiling");
+					appendConsole(`[Assets] ${msg}\n`);
+				});
+				appendConsole(`[Assets] All assets loaded successfully.\n`);
+			} catch (assetErr) {
+				setStatus("Compiler Ready", "ready");
+				appendConsole(`\n[Asset Error] ${assetErr.message}\n`, true);
+				return;
+			}
+		}
+
+		let compileStderrBuffer = [];
 
 		executeCompilerTask("compile", codeValue, async (msg) => {
 			if (msg.type === "stdout") {
@@ -454,7 +474,7 @@ require(['vs/editor/editor.main'], async () => {
 				appendConsole(msg.text, true);
 			} else if (msg.type === "compiled") {
 				appendConsole(`\n[WASM Linked: ${msg.wasm.byteLength} bytes]\n`);
-				await runEmscriptenProgram(msg.wasm);
+				await runEmscriptenProgram(msg.wasm, fetchedAssets);
 				const markers = parseCompilerErrors(compileStderrBuffer.join('\n'), editor.getModel(), monaco);
 				monaco.editor.setModelMarkers(editor.getModel(), "c3", markers);
 			} else if (msg.type === "failed") {
@@ -462,7 +482,7 @@ require(['vs/editor/editor.main'], async () => {
 				const markers = parseCompilerErrors(compileStderrBuffer.join('\n'), editor.getModel(), monaco);
 				monaco.editor.setModelMarkers(editor.getModel(), "c3", markers);
 			}
-		}, extraFlagsInput.value, setStatus);
+		}, extraFlagsInput.value, setStatus, fetchedAssets);
 	};
 
 	try {
@@ -573,7 +593,7 @@ function getFreshCanvas() {
 	return newCanvas;
 }
 
-async function runEmscriptenProgram(wasmBuffer) {
+async function runEmscriptenProgram(wasmBuffer, assets = []) {
 	const runtimeFn = window.C3EmscriptenRuntime;
 	if (!runtimeFn) {
 		appendConsole("\n[Error] C3EmscriptenRuntime not found.\n");
@@ -593,6 +613,19 @@ async function runEmscriptenProgram(wasmBuffer) {
 		});
 
 		currentEmscriptenInstance = instance;
+
+		// Mount/write assets into the Emscripten runtime VFS
+		if (assets && assets.length > 0) {
+			const fs = instance.FS || (instance.wasmExports && instance.wasmExports.FS);
+			if (!fs) {
+				console.error("[Runtime] FS not found on Emscripten instance!", instance);
+				appendConsole("\n[Runtime Error] Virtual File System (FS) is not available on runtime instance.\n", true);
+			} else {
+				for (const asset of assets) {
+					writeVfsFile(fs, asset.path, asset.data);
+				}
+			}
+		}
 
 		const mainFn = instance.wasmExports?.main || instance.wasmExports?.['__main_argc_argv'];
 		if (mainFn) {

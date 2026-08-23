@@ -1,4 +1,4 @@
-// js/examples.js
+import { parseAssetDirectives, fetchAssets } from './assets.js';
 
 export const EXAMPLES_MANIFEST = [
 	// 1. Tutorials (Pure C3, no graphics — simple → complex)
@@ -19,6 +19,7 @@ export const EXAMPLES_MANIFEST = [
 	{ id: "audio_visualizer",     category: "Examples",  name: "Audio Visualizer",         file: "examples/examples/05_audio_visualizer.c3" },
 	{ id: "fm_synthesizer",       category: "Examples",  name: "FM Synthesizer",           file: "examples/examples/06_fm_synthesizer.c3" },
 	{ id: "voxelspace_synthwave", category: "Examples",  name: "VoxelSpace + Synthwave",   file: "examples/examples/07_voxelspace_synthwave.c3" },
+	{ id: "earth_explorer",       category: "Examples",  name: "Earth Explorer (3D)",      file: "examples/examples/08_earth_explorer.c3" },
 
 	// 3. Games
 	{ id: "neon_overdrive",       category: "Games",     name: "Neon Overdrive",           file: "examples/games/01_neon_overdrive.c3" },
@@ -39,13 +40,22 @@ export async function fetchExampleCode(fileUrl) {
 	return text;
 }
 
-// Background prefetch for all examples to make switching instant
+// Background prefetch for all examples and their @asset dependencies to make switching instant
 export function prefetchAllExamples() {
-	const prefetch = () => {
+	const prefetch = async () => {
 		for (const ex of EXAMPLES_MANIFEST) {
-			if (!cache.has(ex.file)) {
-				fetchExampleCode(ex.file).catch(() => {});
-			}
+			try {
+				let code = cache.get(ex.file);
+				if (!code) {
+					code = await fetchExampleCode(ex.file);
+				}
+				if (code) {
+					const assets = parseAssetDirectives(code);
+					if (assets.length > 0) {
+						fetchAssets(assets).catch(() => {});
+					}
+				}
+			} catch (_) {}
 		}
 	};
 

@@ -345,6 +345,13 @@ self.onmessage = function (e) {
 		removeFile('/main.c3');
 		removeFile('/main.wasm');
 
+		// Write all required assets into the worker's virtual file system
+		if (msg.assets && Array.isArray(msg.assets)) {
+			for (const asset of msg.assets) {
+				writeVfsFile(Module.FS, asset.path, asset.data);
+			}
+		}
+
 		Module.FS.writeFile('/main.c3', msg.source);
 		console.log("[Worker] Written main.c3 into virtual file system.");
 
@@ -427,4 +434,33 @@ function removeFile(path) {
 	try {
 		Module.FS.unlink(path);
 	} catch { }
+}
+
+function writeVfsFile(fs, filePath, data) {
+	if (!fs || !filePath || !data) return;
+	const cleanPath = filePath.replace(/\\/g, '/');
+	const normalizedPath = cleanPath.startsWith('/') ? cleanPath : '/' + cleanPath;
+	const parts = normalizedPath.split('/').filter(Boolean);
+	parts.pop();
+
+	let cur = '';
+	for (const p of parts) {
+		cur += '/' + p;
+		try {
+			if (fs.analyzePath) {
+				if (!fs.analyzePath(cur).exists) {
+					fs.mkdir(cur);
+				}
+			} else {
+				fs.mkdir(cur);
+			}
+		} catch (_) {}
+	}
+
+	try {
+		fs.unlink(normalizedPath);
+	} catch (_) {}
+
+	const u8 = data instanceof Uint8Array ? data : new Uint8Array(data);
+	fs.writeFile(normalizedPath, u8);
 }
