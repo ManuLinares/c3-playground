@@ -234,6 +234,10 @@ var _SetWebClipboard = function(ptr) {
 wasmImports = new Proxy(wasmImports, {
   get(target, prop) {
     if (typeof prop === "string") {
+      if (prop === "emscripten_set_resize_callback_on_thread" || prop === "_emscripten_set_resize_callback_on_thread" ||
+          prop === "emscripten_set_resize_callback" || prop === "_emscripten_set_resize_callback") {
+        return function() { return 0; };
+      }
       if (prop === "glfwGetClipboardString" || prop === "_glfwGetClipboardString") return _GetLastPastedText;
       if (prop in target) return target[prop];
       if (prop === "emscripten_asm_const_int" || prop === "_emscripten_asm_const_int") return _emscripten_asm_const_int;
@@ -353,6 +357,58 @@ assert n5 == 1, f"Failed to patch _emscripten_hide_mouse: matched {n5}, expected
 
 # 5. Patch _glfwGetClipboardString to return _GetLastPastedText()
 content = re.sub(r'var _glfwGetClipboardString = \([^\)]*\) => 0;', r'var _glfwGetClipboardString = (win) => _GetLastPastedText();', content)
+
+# 6. Patch _emscripten_set_resize_callback_on_thread to prevent Raylib from attaching window.onresize listeners
+content, n6 = re.subn(r'var _emscripten_set_resize_callback_on_thread = \([^)]*\) =>[^;]*;', r'var _emscripten_set_resize_callback_on_thread = () => 0;', content)
+assert n6 == 1, f"Failed to patch _emscripten_set_resize_callback_on_thread: matched {n6}, expected 1"
+
+# 7. Support InitWindow(0, 0) / monitor resolution by resolving 0 width/height to container or screen size in glfwCreateWindow
+create_window_pattern = r'if \(width <= 0 \|\| height <= 0\) return 0;'
+create_window_replacement = """if (width <= 0 || height <= 0) {
+          var wrapper = document.querySelector(".canvas-wrapper") || document.getElementById("canvasContainer");
+          var w = (wrapper && wrapper.clientWidth > 0) ? wrapper.clientWidth : (typeof screen !== "undefined" && screen.width > 0 ? screen.width : 800);
+          var h = (wrapper && wrapper.clientHeight > 0) ? wrapper.clientHeight : (typeof screen !== "undefined" && screen.height > 0 ? screen.height : 450);
+          if (width <= 0) width = w;
+          if (height <= 0) height = h;
+        }"""
+content, n7 = re.subn(create_window_pattern, create_window_replacement, content)
+assert n7 == 1, f"Failed to patch createWindow: matched {n7}, expected 1"
+
+# 8. Patch _glfwGetVideoMode to return container / screen resolution
+video_mode_replacement = """var _glfwGetVideoMode = (monitor) => {
+      var wrapper = document.querySelector(".canvas-wrapper") || document.getElementById("canvasContainer");
+      var w = (wrapper && wrapper.clientWidth > 0) ? wrapper.clientWidth : (typeof screen !== "undefined" && screen.width > 0 ? screen.width : 800);
+      var h = (wrapper && wrapper.clientHeight > 0) ? wrapper.clientHeight : (typeof screen !== "undefined" && screen.height > 0 ? screen.height : 450);
+      GLFW.videoMode ||= _malloc(24);
+      HEAP32[((GLFW.videoMode)>>2)] = w;
+      HEAP32[(((GLFW.videoMode)+4)>>2)] = h;
+      HEAP32[(((GLFW.videoMode)+8)>>2)] = 8;
+      HEAP32[(((GLFW.videoMode)+12)>>2)] = 8;
+      HEAP32[(((GLFW.videoMode)+16)>>2)] = 8;
+      HEAP32[(((GLFW.videoMode)+20)>>2)] = 60;
+      return GLFW.videoMode;
+    };"""
+content, n8 = re.subn(r'var _glfwGetVideoMode = \([^)]*\) => 0;', video_mode_replacement, content)
+assert n8 == 1, f"Failed to patch _glfwGetVideoMode: matched {n8}, expected 1"
+
+# 9. Ensure initial window and framebuffer size callbacks notify Raylib upon registration
+wsc_pattern = r'win\.windowSizeFunc = cbfun;\s*return prevcbfun;'
+wsc_replacement = """win.windowSizeFunc = cbfun;
+        if (cbfun && win.width > 0 && win.height > 0) {
+          getWasmTableEntry(cbfun)(win.id, win.width, win.height);
+        }
+        return prevcbfun;"""
+content, n9 = re.subn(wsc_pattern, wsc_replacement, content)
+assert n9 == 1, f"Failed to patch setWindowSizeCallback: matched {n9}, expected 1"
+
+fsc_pattern = r'win\.framebufferSizeFunc = cbfun;\s*return prevcbfun;'
+fsc_replacement = """win.framebufferSizeFunc = cbfun;
+      if (cbfun && win.framebufferWidth > 0 && win.framebufferHeight > 0) {
+        getWasmTableEntry(cbfun)(win.id, win.framebufferWidth, win.framebufferHeight);
+      }
+      return prevcbfun;"""
+content, n10 = re.subn(fsc_pattern, fsc_replacement, content)
+assert n10 == 1, f"Failed to patch setFramebufferSizeCallback: matched {n10}, expected 1"
 
 with open(out_path, "w") as f:
     f.write(content)

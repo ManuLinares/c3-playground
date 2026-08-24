@@ -150,7 +150,9 @@ fn void update_draw_frame()
 
 fn int main(String[] args) @winmain
 {
-	rl::set_config_flags(WINDOW_RESIZABLE);
+	$if !env::WASM:
+		rl::set_config_flags(WINDOW_RESIZABLE);
+	$endif
 	rl::init_window(SCREEN_WIDTH, SCREEN_HEIGHT, "Audio and Visuals - C3 & Raylib");
 	rl::init_audio_device();
 

@@ -356,18 +356,26 @@ fn void update_draw_frame()
 	rl::@drawing()
 	{
 		rl::clear_background(rl::BLACK);
-		float sw = (float)rl::get_render_width();
-		float sh = (float)rl::get_render_height();
-		float s  = math::min(sw / (float)SCREEN_WIDTH, sh / (float)SCREEN_HEIGHT);
-		Vec2 size = { (float)SCREEN_WIDTH * s, (float)SCREEN_HEIGHT * s };
-		Vec2 pos  = { (sw - size.x) * 0.5f, (sh - size.y) * 0.5f };
-
-		rl::draw_texture_pro(
-			canvas_texture,
-			{ 0.0f, 0.0f, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT },
-			{ pos.x, pos.y, size.x, size.y },
-			{ 0.0f, 0.0f }, 0.0f, rl::WHITE
-		);
+		$if env::WASM:
+			rl::draw_texture_pro(
+				canvas_texture,
+				{ 0.0f, 0.0f, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT },
+				{ 0.0f, 0.0f, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT },
+				{ 0.0f, 0.0f }, 0.0f, rl::WHITE
+			);
+		$else
+			float sw = (float)rl::get_render_width();
+			float sh = (float)rl::get_render_height();
+			float s  = math::min(sw / (float)SCREEN_WIDTH, sh / (float)SCREEN_HEIGHT);
+			Vec2 size = { (float)SCREEN_WIDTH * s, (float)SCREEN_HEIGHT * s };
+			Vec2 pos  = { (sw - size.x) * 0.5f, (sh - size.y) * 0.5f };
+			rl::draw_texture_pro(
+				canvas_texture,
+				{ 0.0f, 0.0f, (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT },
+				{ pos.x, pos.y, size.x, size.y },
+				{ 0.0f, 0.0f }, 0.0f, rl::WHITE
+			);
+		$endif
 		rl::draw_text("VoxelSpace Flight Simulator + Synthwave (Raylib)", 20, 20, 20, rl::RAYWHITE);
 		rl::draw_fps(20, 48);
 	};
@@ -375,7 +383,6 @@ fn void update_draw_frame()
 
 fn int main(String[] args) @winmain
 {
-	rl::set_config_flags(WINDOW_RESIZABLE);
 	rl::init_window(SCREEN_WIDTH, SCREEN_HEIGHT, "VoxelSpace Flight Simulator - C3 & Raylib");
 	rl::init_audio_device();
 

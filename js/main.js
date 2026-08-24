@@ -268,7 +268,7 @@ document.onclick = (e) => {
 };
 
 export function fitCanvasToContainer() {
-	const wrapper = document.querySelector(".canvas-wrapper");
+	const wrapper = document.querySelector(".canvas-wrapper") || document.getElementById("canvasContainer");
 	const canvas = document.getElementById("canvas");
 	if (!wrapper || !canvas || !canvas.width || !canvas.height) return;
 
@@ -571,21 +571,30 @@ window.addEventListener('open-stdlib-doc', (e) => {
 
 
 function getFreshCanvas() {
+	const container = document.getElementById("canvasContainer");
+	let wrapper = document.querySelector(".canvas-wrapper");
+	if (!wrapper && container) {
+		wrapper = document.createElement("div");
+		wrapper.className = "canvas-wrapper";
+		container.appendChild(wrapper);
+	}
 	const oldCanvas = document.getElementById("canvas");
-	if (!oldCanvas) return null;
-	const newCanvas = oldCanvas.cloneNode(false);
-	newCanvas.className = '';
-	newCanvas.style.cursor = '';
+	const newCanvas = document.createElement("canvas");
+	newCanvas.id = "canvas";
 	newCanvas.tabIndex = 0;
 	newCanvas.addEventListener("mousedown", () => newCanvas.focus());
 	newCanvas.addEventListener("contextmenu", (e) => e.preventDefault());
-	oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
+
+	if (oldCanvas && oldCanvas.parentNode) {
+		oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
+	} else if (wrapper) {
+		wrapper.appendChild(newCanvas);
+	}
 
 	if (document.pointerLockElement) {
 		try { document.exitPointerLock(); } catch (_) {}
 	}
 
-	const wrapper = document.querySelector(".canvas-wrapper");
 	if (wrapper) {
 		canvasResizeObserver.disconnect();
 		canvasResizeObserver.observe(wrapper);

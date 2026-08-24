@@ -791,7 +791,9 @@ RLAudioStream audio_stream;
 
 fn int main(String[] args) @winmain
 {
-	rl::set_config_flags(WINDOW_RESIZABLE);
+	$if !env::WASM:
+		rl::set_config_flags(WINDOW_RESIZABLE);
+	$endif
 	rl::init_window(640, 480, "NEON OVERDRIVE: CYBER ARENA - C3 & Raylib");
 	rl::hide_cursor();
 	rl::init_audio_device();
