@@ -1,3 +1,7 @@
+this project has moved to https://github.com/c3lang/c3-playground - https://play.c3-lang.org/
+
+---
+
 <a href="https://c3-lang.org">
   <img src="favicon.svg" align="right" height="140" width="140" />
 </a>
